@@ -1,0 +1,52 @@
+url: https://jotremblay.github.io/oxidizr/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+reference:
+  - title: "Data Classes"
+    desc: "S7 classes for organizing calorimetry and isotope data"
+    contents:
+      - CalorimetryData
+      - IsotopeData
+      - UreaData
+      - EnvironmentData
+      - SubjectData
+      - OxidationStudy
+      - OxidationResults
+
+  - title: "Oxidation Calculations"
+    desc: "Functions for calculating substrate oxidation rates"
+    contents:
+      - starts_with("calc_")
+      - stoich_coefficients
+
+  - title: "Data Import"
+    desc: "Functions for reading calorimetry data"
+    contents:
+      - starts_with("read_")
+
+  - title: "Visualization"
+    desc: "ggplot2-based plotting functions"
+    contents:
+      - starts_with("plot_")
+
+  - title: "Tables"
+    desc: "Publication-ready table generation"
+    contents:
+      - starts_with("table_")
+
+  - title: "Reports"
+    desc: "Automated report generation"
+    contents:
+      - starts_with("report_")
+
+  - title: "Utilities"
+    desc: "Helper functions"
+    contents:
+      - starts_with("format_")

@@ -1,0 +1,206 @@
+---
+title: "Getting Started with oxidizr"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with oxidizr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+The `oxidizr` package provides tools for analyzing substrate oxidation during
+exercise using indirect calorimetry and stable isotope tracers. This vignette
+demonstrates the basic workflow for analyzing oxidation data.
+
+## Installation
+
+```{r install, eval = FALSE}
+# Install from local source
+devtools::install("path/to/oxidizr")
+
+# Or from GitHub (when available)
+# remotes::install_github("jtremblay/oxidizr")
+```
+
+## Basic Workflow
+
+### 1. Load the Package
+
+```{r load, message = FALSE}
+library(oxidizr)
+library(ggplot2)
+```
+
+### 2. Create Sample Data
+
+For this example, we'll create some simulated calorimetry data:
+
+```{r sample-data}
+# Simulated calorimetry data
+calo_df <- data.frame(
+  id = rep(1:5, each = 4),
+  protocol = rep(c("Control", "Treatment"), each = 10),
+  time = rep(c(30, 60, 90, 120), 5),
+  vo2 = rnorm(20, mean = 2.5, sd = 0.2),
+  vco2 = rnorm(20, mean = 2.3, sd = 0.2)
+)
+
+# Preview the data
+head(calo_df)
+```
+
+### 3. Create a CalorimetryData Object
+
+The first step is to wrap your data in an S7 class:
+```{r create-calo}
+calo <- CalorimetryData(
+  data = calo_df,
+  id_col = "id",
+  time_col = "time",
+  vo2_col = "vo2",
+  vco2_col = "vco2",
+  vo2_unit = "L/min",
+  protocol_col = "protocol"
+)
+
+# Print summary
+print(calo)
+```
+
+### 4. Calculate Substrate Oxidation
+
+Use the `calc_substrate_oxidation()` function to calculate CHO and fat oxidation:
+
+```{r calc-ox}
+oxidation <- calc_substrate_oxidation(calo)
+
+# View results
+head(oxidation)
+```
+
+### 5. Calculate Energy Contributions
+
+Convert oxidation rates to energy yield and percentages:
+
+```{r calc-energy}
+energy <- calc_energy_yield(oxidation)
+energy <- calc_energy_percent(energy)
+
+# View energy percentages
+energy |>
+  dplyr::select(id, time, pct_cho_total, pct_fat, e_total) |>
+  head()
+```
+
+### 6. Visualize Results
+
+#### Time Course Plot
+
+```{r plot-timecourse}
+plot_oxidation_timecourse(oxidation, substrate = "all", by = "protocol")
+```
+
+#### RER Plot
+
+```{r plot-rer}
+plot_rer_timecourse(oxidation, by = "protocol")
+```
+
+#### Energy Contribution Bar Chart
+
+```{r plot-energy}
+# Create results object for plotting
+results <- OxidationResults(
+  oxidation_rates = as.data.frame(oxidation),
+  energy_contributions = as.data.frame(energy)
+)
+
+plot_energy_contribution(results, by = "protocol")
+```
+
+### 7. Summary Tables
+
+Create publication-ready tables:
+
+```{r tables}
+tbl_oxidation_summary(results, by = "protocol")
+```
+
+## Advanced: Using Isotope Tracers
+
+For studies using 13C-labeled substrates, you can calculate exogenous carbohydrate
+oxidation:
+
+```{r isotope-example, eval = FALSE}
+# Create isotope data
+iso_data <- IsotopeData(
+  rexp = rexp_df,    # Expired CO2 enrichment
+  rexo = rexo_df,    # Exogenous substrate enrichment
+  rref = rref_df,    # Reference enrichment
+  rpla = rpla_df     # Plasma glucose enrichment (optional)
+)
+
+# Create study object
+study <- oxidation_study(
+  calorimetry = calo,
+  isotopes = iso_data
+)
+
+# Run complete analysis
+results <- analyze_oxidation(
+  study,
+  time_range = c(30, 120),
+  control_protocol = "Control"
+)
+
+# Plot CHO partitioning
+plot_cho_partition(results, by = "protocol")
+```
+
+## Key Formulas
+
+### Stoichiometric Equations
+
+The package uses stoichiometric equations for carbohydrate and fat oxidation. These are based on general principles (Livesey & Elia, 1988) with specific coefficients parameterized as presented in Telmosse (2022), derived from Institute of Medicine (2005) data.
+
+**Carbohydrate oxidation:**
+$$CHO\ (g/min) = 4.618 \times VCO_2 - 3.279 \times VO_2$$
+
+**Fat oxidation:**
+$$Fat\ (g/min) = -1.712 \times VCO_2 + 1.712 \times VO_2$$
+
+### Exogenous CHO from Isotopes
+
+When using 13C tracers, the formula for exogenous carbohydrate oxidation utilizes a CO2/CHO conversion ratio of 0.747 L CO2 per gram CHO oxidized (Péronnet & Massicotte, 1991; Telmosse, 2022).
+
+$$CHO_{exo} = \frac{VCO_2 \times (R_{exp} - R_{ref})}{(R_{exo} - R_{ref}) \times 0.747}$$
+
+### Energy Factors
+
+Default energy conversion factors (kcal/g) are based on Institute of Medicine (2005):
+- Carbohydrate: 3.72
+- Fat: 9.44
+- Protein: 4.70
+
+## References
+
+*   **Institute of Medicine, Food and Nutrition Board.** (2005). *Dietary Reference Intakes for Energy, Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino Acids*. National Academies Press.
+*   **Livesey, G., & Elia, M.** (1988). Estimation of energy expenditure, net carbohydrate utilization, and net fat oxidation and synthesis by indirect calorimetry: evaluation of errors with special reference to the detailed composition of fuels. *The American Journal of Clinical Nutrition*, *47*(4), 608–628.
+*   **Péronnet, F., & Massicotte, D.** (1991). Table of nonprotein respiratory quotient: an update. *Canadian Journal of Sport Sciences = Journal Canadien Des Sciences Du Sport*, *16*(1), 23–29.
+*   **Telmosse, E.** (2022). *Contribution des glucides exogènes à la fourniture d’énergie lors d’un effort prolongé : analyse par régression multiple*. Mémoire de maîtrise, Université de Montréal.
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
+```

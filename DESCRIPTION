@@ -1,0 +1,49 @@
+Package: oxidizr
+Title: Substrate Oxidation Analysis During Exercise
+Version: 0.1.0
+Authors@R: person("Jonathan", "Tremblay", email = "jonathan.tremblay@umontreal.ca", role = c("aut", "cre"))
+Author: Jonathan Tremblay [aut, cre]
+Maintainer: Jonathan Tremblay <jonathan.tremblay@umontreal.ca>
+Description: Analyze substrate oxidation during exercise using indirect
+    calorimetry and stable isotope tracers. Calculates carbohydrate, fat, and
+    protein oxidation rates with optional partitioning of exogenous vs endogenous
+    carbohydrate sources using 13C isotope methods. Provides S7-based classes for
+    data management, publication-ready visualizations, and formatted tables.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
+Imports:
+    S7,
+    dplyr,
+    tidyr,
+    purrr,
+    ggplot2,
+    gt,
+    readr,
+    readxl,
+    lubridate,
+    cli,
+    rlang,
+    glue,
+    tibble,
+    forcats,
+    stringr,
+    cowplot,
+    openxlsx,
+    writexl
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    quarto,
+    afex,
+    emmeans,
+    targets,
+    tarchetypes
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+URL: https://github.com/jtremblay/oxidizr
+BugReports: https://github.com/jtremblay/oxidizr/issues

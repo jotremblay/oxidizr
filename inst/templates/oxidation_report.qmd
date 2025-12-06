@@ -1,0 +1,173 @@
+---
+title: "`r params$title`"
+author: "`r params$author`"
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    theme: cosmo
+params:
+  results_file: NULL
+  title: "Substrate Oxidation Analysis"
+  author: "oxidizr"
+  include_stats: true
+  include_tables: true
+  include_methods: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+
+library(oxidizr)
+library(ggplot2)
+library(gt)
+library(dplyr)
+
+# Load results
+results <- readRDS(params$results_file)
+```
+
+## Overview
+
+This report presents the results of substrate oxidation analysis performed using the `oxidizr` package.
+
+```{r overview}
+# Quick summary
+n_obs <- nrow(results@oxidation_rates)
+has_isotopes <- !is.null(results@partition) && "cho_exo" %in% names(results@partition)
+has_energy <- !is.null(results@energy_contributions)
+```
+
+**Analysis summary:**
+
+- Total observations: `r n_obs`
+- Isotope partitioning: `r ifelse(has_isotopes, "Yes", "No")`
+- Energy contributions: `r ifelse(has_energy, "Calculated", "Not calculated")`
+
+```{r methods, eval=params$include_methods}
+#| results: asis
+cat("
+## Methods
+
+### Indirect Calorimetry
+
+Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~) using stoichiometric equations (Livesey & Elia, 1988), with coefficients parameterized as presented in Telmosse (2022), derived from Institute of Medicine (2005) data:
+
+- **CHO oxidation** (g/min) = 4.618 × VCO~2~ - 3.279 × VO~2~
+- **Fat oxidation** (g/min) = -1.712 × VCO~2~ + 1.712 × VO~2~
+
+### Energy Contributions
+
+Energy yield was calculated using factors from Institute of Medicine (2005):
+
+- Carbohydrate: 3.72 kcal/g
+- Fat: 9.44 kcal/g
+- Protein: 4.70 kcal/g
+")
+
+if (has_isotopes) {
+  cat("
+### Isotope Tracer Analysis
+
+Exogenous carbohydrate oxidation was determined using ^13^C isotope enrichment, with the CO2/CHO conversion ratio (0.747 L CO2 per gram CHO oxidized) based on Péronnet & Massicotte (1991) and presented in Telmosse (2022):
+
+CHO~exo~ = VCO~2~ × ((R~exp~ - R~ref~) / (R~exo~ - R~ref~)) / 0.747
+
+Where:
+- R~exp~ = ^13^C enrichment of expired CO~2~
+- R~ref~ = baseline enrichment (from control condition)
+- R~exo~ = ^13^C enrichment of ingested substrate
+")
+}
+```
+
+## Results
+
+### Oxidation Rates
+
+```{r oxidation-rates}
+# Summary table
+if (params$include_tables) {
+  tbl_oxidation_summary(results, by = "protocol")
+}
+```
+
+### Time Course
+
+```{r time-course, fig.cap="Substrate oxidation rates over time"}
+# Check if protocol column exists
+protocol_col <- NULL
+if ("protocol" %in% names(results@oxidation_rates)) {
+  protocol_col <- "protocol"
+}
+
+plot_oxidation_timecourse(results, substrate = "all", by = protocol_col)
+```
+
+### Respiratory Exchange Ratio
+
+```{r rer-plot, fig.cap="RER over time by condition"}
+plot_rer_timecourse(results, by = protocol_col)
+```
+
+```{r energy-section, eval=has_energy}
+#| results: asis
+cat("
+### Energy Contributions
+
+The following figure shows the relative contribution of each substrate to total energy yield.
+")
+```
+
+```{r energy-plot, eval=has_energy, fig.cap="Energy contribution by substrate"}
+plot_energy_contribution(results, by = "protocol", partition = has_isotopes)
+```
+
+```{r energy-table, eval=has_energy && params$include_tables}
+tbl_energy_contribution(results, by = "protocol")
+```
+
+```{r isotope-section, eval=has_isotopes}
+#| results: asis
+cat("
+### Exogenous vs Endogenous CHO
+
+Isotope tracer analysis allowed partitioning of carbohydrate oxidation into exogenous (ingested) and endogenous (stored) sources.
+")
+```
+
+```{r isotope-partition, eval=has_isotopes, fig.cap="CHO source partitioning"}
+plot_cho_partition(results, by = "protocol")
+```
+
+## Summary Statistics
+
+```{r summary-stats}
+if (params$include_tables) {
+  # Overall summary
+  summary_df <- results@oxidation_rates |>
+    summarise(
+      across(
+        any_of(c("cho_total", "fat_total", "protein_ox", "cho_exo", "cho_endo")),
+        list(mean = ~mean(.x, na.rm = TRUE), sd = ~sd(.x, na.rm = TRUE)),
+        .names = "{.col}_{.fn}"
+      )
+    )
+
+  gt(summary_df) |>
+    fmt_number(everything(), decimals = 2) |>
+    tab_header(title = "Overall Oxidation Summary")
+}
+```
+
+---
+
+*Report generated with oxidizr v`r packageVersion("oxidizr")` on `r Sys.time()`*
