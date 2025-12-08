@@ -9,7 +9,10 @@ analyze_oxidation(
   time_range = NULL,
   aggregate = FALSE,
   calc_energy = TRUE,
-  control_protocol = NULL
+  control_protocol = NULL,
+  validate = TRUE,
+  strict = FALSE,
+  validation_thresholds = NULL
 )
 }
 \arguments{
@@ -22,6 +25,14 @@ analyze_oxidation(
 \item{calc_energy}{Logical, calculate energy contributions (default: TRUE)}
 
 \item{control_protocol}{Name of control protocol for Rref (required if isotopes present)}
+
+\item{validate}{Logical, whether to validate data before analysis (default: TRUE)}
+
+\item{strict}{Logical, whether to stop on validation errors (default: FALSE).
+If FALSE (default), warnings are issued but analysis continues.
+If TRUE, analysis stops if validation errors are found.}
+
+\item{validation_thresholds}{Optional custom thresholds list (see calorimetry_thresholds)}
 }
 \value{
 An OxidationResults S7 object
@@ -37,5 +48,11 @@ study <- oxidation_study(
   subjects = subject_data
 )
 results <- analyze_oxidation(study, time_range = c(30, 120))
+
+# With strict validation
+results <- analyze_oxidation(study, validate = TRUE, strict = TRUE)
+
+# Skip validation
+results <- analyze_oxidation(study, validate = FALSE)
 }
 }

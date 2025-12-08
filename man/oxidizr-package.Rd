@@ -6,8 +6,53 @@
 \alias{oxidizr-package}
 \title{oxidizr: Substrate Oxidation Analysis During Exercise}
 \description{
-Analyze substrate oxidation during exercise using indirect calorimetry and stable isotope tracers. Calculates carbohydrate, fat, and protein oxidation rates with optional partitioning of exogenous vs endogenous carbohydrate sources using 13C isotope methods. Provides S7-based classes for data management, publication-ready visualizations, and formatted tables.
+The oxidizr package provides a complete workflow for analyzing substrate
+oxidation during exercise using indirect calorimetry and stable isotope tracers.
 }
+\section{Analysis Pipeline}{
+
+The typical analysis workflow consists of:
+\enumerate{
+\item \strong{Data Import}: Read data files or create S7 data objects
+\item \strong{Data Validation}: Check data quality with \code{validate_study()}
+\item \strong{Steady-State Detection}: Identify valid periods with \code{detect_steady_state()}
+\item \strong{Processing}: Filter and aggregate with \code{filter_time_range()}, \code{aggregate_calorimetry()}
+\item \strong{Computation}: Calculate oxidation with \code{analyze_oxidation()} or \verb{calc_*()} functions
+\item \strong{Reporting}: Generate outputs with \verb{plot_*()}, \verb{tbl_*()}, and \verb{render_*_report()}
+}
+}
+
+\section{Key Functions}{
+
+\describe{
+\item{analyze_oxidation()}{Main analysis function with integrated validation}
+\item{validate_study()}{Comprehensive data quality validation}
+\item{detect_steady_state()}{Identify steady-state measurement periods}
+\item{calc_substrate_oxidation()}{Calculate CHO and fat oxidation rates}
+\item{render_quality_report()}{Generate data quality HTML report}
+}
+}
+
+\section{S7 Classes}{
+
+\describe{
+\item{CalorimetryData}{Indirect calorimetry measurements}
+\item{IsotopeData}{13C isotope enrichment data}
+\item{OxidationStudy}{Container for all study data}
+\item{OxidationResults}{Analysis results}
+\item{ValidationResult}{Validation findings}
+}
+}
+
+\section{Vignettes}{
+
+\itemize{
+\item \code{vignette("getting-started")}: Quick introduction
+\item \code{vignette("analysis-pipeline")}: Complete workflow guide
+\item \code{vignette("data-quality")}: Validation and quality control
+}
+}
+
 \seealso{
 Useful links:
 \itemize{

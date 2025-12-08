@@ -253,6 +253,11 @@ oxidation_study <- function(calorimetry,
 #' @param aggregate Logical, aggregate by time point (default: FALSE)
 #' @param calc_energy Logical, calculate energy contributions (default: TRUE)
 #' @param control_protocol Name of control protocol for Rref (required if isotopes present)
+#' @param validate Logical, whether to validate data before analysis (default: TRUE)
+#' @param strict Logical, whether to stop on validation errors (default: FALSE).
+#'   If FALSE (default), warnings are issued but analysis continues.
+#'   If TRUE, analysis stops if validation errors are found.
+#' @param validation_thresholds Optional custom thresholds list (see calorimetry_thresholds)
 #'
 #' @return An OxidationResults S7 object
 #' @export
@@ -265,18 +270,59 @@ oxidation_study <- function(calorimetry,
 #'   subjects = subject_data
 #' )
 #' results <- analyze_oxidation(study, time_range = c(30, 120))
+#'
+#' # With strict validation
+#' results <- analyze_oxidation(study, validate = TRUE, strict = TRUE)
+#'
+#' # Skip validation
+#' results <- analyze_oxidation(study, validate = FALSE)
 #' }
 analyze_oxidation <- function(study,
                                time_range = NULL,
                                aggregate = FALSE,
                                calc_energy = TRUE,
-                               control_protocol = NULL) {
+                               control_protocol = NULL,
+                               validate = TRUE,
+                               strict = FALSE,
+                               validation_thresholds = NULL) {
 
   if (!S7_inherits(study, OxidationStudy)) {
     cli::cli_abort("study must be an OxidationStudy object")
   }
 
   cli::cli_h1("Analyzing Oxidation")
+
+  # Validate data before analysis
+  validation_result <- NULL
+  if (validate) {
+    cli::cli_alert_info("Validating study data...")
+    validation_result <- validate_study(
+      study,
+      strict = FALSE,  # Always get full results first
+      thresholds = validation_thresholds,
+      verbose = FALSE
+    )
+
+    if (!validation_result@passed) {
+      n_errors <- validation_result@severity_summary$error %||% 0
+      n_warnings <- validation_result@severity_summary$warning %||% 0
+
+      if (strict && n_errors > 0) {
+        cli::cli_alert_danger("Validation failed with {n_errors} error(s)")
+        cli::cli_inform("Run validate_study(study) for details")
+        cli::cli_abort("Analysis stopped due to validation errors (strict = TRUE)")
+      } else if (n_errors > 0) {
+        cli::cli_alert_warning(
+          "Validation found {n_errors} error(s), {n_warnings} warning(s) - proceeding with caution"
+        )
+        cli::cli_inform("Run validate_study(study) for details")
+      } else if (n_warnings > 0) {
+        cli::cli_alert_info("Validation found {n_warnings} warning(s)")
+      }
+    } else {
+      cli::cli_alert_success("Validation passed")
+    }
+  }
 
   # Extract calorimetry data
   calo <- study@calorimetry
@@ -357,8 +403,15 @@ analyze_oxidation <- function(study,
     time_range = time_range,
     aggregate = aggregate,
     control_protocol = control_protocol,
-    calc_energy = calc_energy
+    calc_energy = calc_energy,
+    validate = validate,
+    strict = strict
   )
+
+  # Add validation result to settings if available
+  if (!is.null(validation_result)) {
+    settings$validation <- validation_result
+  }
 
   cli::cli_alert_success("Analysis complete")
 

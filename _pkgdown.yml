@@ -2,11 +2,32 @@ url: https://jotremblay.github.io/oxidizr/
 
 template:
   bootstrap: 5
+  bootswatch: flatly
+
+home:
+  sidebar:
+    structure: [links, license, community, citation, authors, dev]
 
 navbar:
   structure:
     left: [intro, reference, articles, news]
     right: [search, github]
+  components:
+    articles:
+      text: Articles
+      menu:
+        - text: Getting Started
+          href: articles/getting-started.html
+        - text: Complete Analysis Pipeline
+          href: articles/analysis-pipeline.html
+        - text: Data Validation & Quality
+          href: articles/data-quality.html
+        - text: "---"
+        - text: Advanced Topics
+        - text: Isotope Tracer Analysis
+          href: articles/isotope-analysis.html
+        - text: Using with targets
+          href: articles/targets-workflow.html
 
 reference:
   - title: "Data Classes"
@@ -19,34 +40,127 @@ reference:
       - SubjectData
       - OxidationStudy
       - OxidationResults
+      - ValidationResult
+
+  - title: "Main Analysis Workflow"
+    desc: "High-level functions for complete analysis"
+    contents:
+      - oxidation_study
+      - analyze_oxidation
+
+  - title: "Data Validation"
+    desc: "Functions for validating data quality"
+    contents:
+      - validate_study
+      - validate_calorimetry
+      - validate_isotopes
+      - validate_environment
+      - validate_urea
+      - check_consistency
+      - calorimetry_thresholds
+      - isotope_thresholds
+      - environment_thresholds
+      - urea_thresholds
+
+  - title: "Steady-State Detection"
+    desc: "Functions for identifying steady-state periods"
+    contents:
+      - detect_steady_state
+      - detect_steady_state_cv
+      - detect_steady_state_variance
+      - summarize_steady_state
+      - filter_steady_state
+      - calc_steady_state_stats
 
   - title: "Oxidation Calculations"
     desc: "Functions for calculating substrate oxidation rates"
     contents:
-      - starts_with("calc_")
+      - calc_substrate_oxidation
+      - calc_cho_partition
+      - calc_exogenous_cho
+      - calc_plasma_cho
+      - calc_protein_oxidation
+      - calc_energy_yield
+      - calc_energy_percent
+      - calc_rref
       - stoich_coefficients
 
   - title: "Data Import"
-    desc: "Functions for reading calorimetry data"
+    desc: "Functions for reading calorimetry data from various formats"
     contents:
       - starts_with("read_")
+
+  - title: "Data Processing"
+    desc: "Functions for filtering and aggregating data"
+    contents:
+      - filter_time_range
+      - aggregate_calorimetry
 
   - title: "Visualization"
     desc: "ggplot2-based plotting functions"
     contents:
-      - starts_with("plot_")
+      - theme_oxidizr
+      - plot_oxidation_timecourse
+      - plot_rer_timecourse
+      - plot_vo2_timecourse
+      - plot_energy_contribution
+      - plot_cho_partition
+      - plot_isotope_enrichment
+      - plot_data_quality
+      - plot_steady_state
+      - plot_outliers
+      - plot_missing_data
+      - plot_validation_timeseries
 
   - title: "Tables"
-    desc: "Publication-ready table generation"
+    desc: "Publication-ready table generation with gt"
     contents:
-      - starts_with("table_")
+      - tbl_subjects
+      - tbl_oxidation_summary
+      - tbl_energy_contribution
+      - tbl_validation_summary
+      - tbl_data_completeness
+      - tbl_outliers
+      - tbl_steady_state
+      - tbl_stats
+      - export_table_xlsx
 
   - title: "Reports"
     desc: "Automated report generation"
     contents:
-      - starts_with("report_")
+      - render_oxidation_report
+      - render_quality_report
+      - create_report_template
+      - create_quality_report_template
+
+  - title: "targets Integration"
+    desc: "Functions for use with the targets package"
+    contents:
+      - starts_with("tar_")
+
+  - title: "Generics and Methods"
+    desc: "S7 generic functions"
+    contents:
+      - get_data
+      - matches("method")
 
   - title: "Utilities"
     desc: "Helper functions"
     contents:
       - starts_with("format_")
+
+articles:
+  - title: Getting Started
+    navbar: ~
+    contents:
+      - getting-started
+
+  - title: Workflow Guides
+    contents:
+      - analysis-pipeline
+      - data-quality
+
+  - title: Advanced Topics
+    contents:
+      - isotope-analysis
+      - targets-workflow

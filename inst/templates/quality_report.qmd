@@ -1,0 +1,301 @@
+---
+title: "Data Quality Report"
+author: "`r params$author`"
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+    embed-resources: true
+params:
+  results_file: NULL
+  validation_file: NULL
+  title: "Data Quality Report"
+  author: "oxidizr"
+  include_steady_state: true
+  include_recommendations: true
+  include_raw_data: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+
+library(oxidizr)
+library(dplyr)
+library(ggplot2)
+library(gt)
+
+# Load validation results
+if (!is.null(params$validation_file) && file.exists(params$validation_file)) {
+  validation <- readRDS(params$validation_file)
+} else {
+  validation <- NULL
+}
+
+# Load study data if provided
+if (!is.null(params$results_file) && file.exists(params$results_file)) {
+  results <- readRDS(params$results_file)
+  study <- results$study
+  validation <- results$validation
+} else {
+  study <- NULL
+}
+```
+
+# Executive Summary {.unnumbered}
+
+```{r summary-box}
+if (!is.null(validation)) {
+  n_errors <- validation@severity_summary$error %||% 0
+  n_warnings <- validation@severity_summary$warning %||% 0
+  n_info <- validation@severity_summary$info %||% 0
+
+  status_color <- if (validation@passed) "#4DAF4A" else if (n_errors > 0) "#E41A1C" else "#FF7F00"
+  status_text <- if (validation@passed) "PASSED" else "ISSUES FOUND"
+
+  cat(paste0(
+    '<div style="background-color:', status_color, '20; border-left: 4px solid ', status_color,
+    '; padding: 15px; margin: 20px 0; border-radius: 4px;">',
+    '<h3 style="margin-top: 0; color:', status_color, ';">Validation Status: ', status_text, '</h3>',
+    '<ul style="margin-bottom: 0;">',
+    '<li><strong>Errors:</strong> ', n_errors, '</li>',
+    '<li><strong>Warnings:</strong> ', n_warnings, '</li>',
+    '<li><strong>Info:</strong> ', n_info, '</li>',
+    '</ul>',
+    '</div>'
+  ))
+} else {
+  cat('<div style="background-color: #f0f0f0; padding: 15px; border-radius: 4px;">
+       <em>No validation results available</em></div>')
+}
+```
+
+# Data Overview
+
+```{r data-overview}
+if (!is.null(study)) {
+  # Extract study info
+  n_subjects <- length(unique(study@calorimetry@data[[study@calorimetry@id_col]]))
+  n_timepoints <- length(unique(study@calorimetry@data[[study@calorimetry@time_col]]))
+  n_obs <- nrow(study@calorimetry@data)
+
+  cat("## Study Components\n\n")
+
+  components <- tibble::tibble(
+    Component = c("Calorimetry", "Isotopes", "Urea", "Environment", "Subjects"),
+    Status = c(
+      "Present",
+      if (!is.null(study@isotopes)) "Present" else "Not provided",
+      if (!is.null(study@urea)) "Present" else "Not provided",
+      if (!is.null(study@environment)) "Present" else "Not provided",
+      if (!is.null(study@subjects)) "Present" else "Not provided"
+    ),
+    Details = c(
+      paste0(n_obs, " observations from ", n_subjects, " subjects"),
+      if (!is.null(study@isotopes)) paste0(nrow(study@isotopes@rexp), " Rexp records") else "-",
+      if (!is.null(study@urea)) paste0(nrow(study@urea@data), " records") else "-",
+      if (!is.null(study@environment)) paste0(nrow(study@environment@data), " records") else "-",
+      if (!is.null(study@subjects)) paste0(nrow(study@subjects@data), " records") else "-"
+    )
+  )
+
+  components |>
+    gt::gt() |>
+    gt::tab_header(title = "Study Data Components") |>
+    gt::data_color(
+      columns = "Status",
+      fn = function(x) ifelse(x == "Present", "#4DAF4A", "#999999")
+    )
+}
+```
+
+# Validation Results
+
+## Issues by Category
+
+```{r validation-category}
+if (!is.null(validation) && nrow(validation@issues) > 0) {
+  tbl_validation_summary(validation, group_by = "category")
+} else {
+  cat("*No validation issues found*")
+}
+```
+
+## Issues by Severity
+
+```{r validation-severity}
+if (!is.null(validation) && nrow(validation@issues) > 0) {
+  plot_data_quality(validation)
+}
+```
+
+## Detailed Issues
+
+```{r validation-details}
+if (!is.null(validation) && nrow(validation@issues) > 0) {
+  validation@issues |>
+    dplyr::select("check_id", "category", "variable", "severity", "message", "n_affected") |>
+    dplyr::arrange(dplyr::desc(.data$severity == "error"), .data$category) |>
+    gt::gt() |>
+    gt::tab_header(title = "All Validation Issues") |>
+    gt::data_color(
+      columns = "severity",
+      fn = function(x) {
+        dplyr::case_when(
+          x == "error" ~ "#E41A1C",
+          x == "warning" ~ "#FF7F00",
+          x == "info" ~ "#377EB8",
+          TRUE ~ "grey"
+        )
+      }
+    ) |>
+    gt::cols_label(
+      check_id = "Check",
+      category = "Category",
+      variable = "Variable",
+      severity = "Severity",
+      message = "Message",
+      n_affected = "Affected"
+    )
+}
+```
+
+# Data Completeness
+
+```{r completeness}
+if (!is.null(study)) {
+  tbl_data_completeness(study@calorimetry, by = "variable")
+}
+```
+
+## Completeness by Subject
+
+```{r completeness-subject}
+if (!is.null(study)) {
+  tbl_data_completeness(study@calorimetry, by = "subject")
+}
+```
+
+## Missing Data Visualization
+
+```{r missing-plot}
+if (!is.null(study)) {
+  plot_missing_data(study@calorimetry, type = "heatmap")
+}
+```
+
+# Outlier Analysis
+
+```{r outliers}
+if (!is.null(validation)) {
+  tbl_outliers(validation)
+}
+```
+
+## Outlier Visualization
+
+```{r outlier-plot}
+if (!is.null(study) && !is.null(validation)) {
+  plot_outliers(study@calorimetry, validation)
+}
+```
+
+# Variable Range Validation
+
+```{r range-plot}
+if (!is.null(study)) {
+  plot_validation_timeseries(study@calorimetry)
+}
+```
+
+::: {.content-visible when-meta="params.include_steady_state"}
+
+# Steady-State Analysis
+
+```{r steady-state}
+if (!is.null(study) && params$include_steady_state) {
+  # Detect steady state
+  ss_result <- detect_steady_state(
+    study@calorimetry,
+    variables = c("vo2", "vco2"),
+    cv_threshold = 0.10,
+    method = "both",
+    verbose = FALSE
+  )
+
+  tbl_steady_state(ss_result)
+}
+```
+
+## Steady-State Visualization
+
+```{r steady-state-plot}
+if (!is.null(study) && params$include_steady_state && exists("ss_result")) {
+  plot_steady_state(ss_result)
+}
+```
+
+:::
+
+::: {.content-visible when-meta="params.include_recommendations"}
+
+# Recommendations
+
+```{r recommendations}
+if (!is.null(validation) && length(validation@recommendations) > 0) {
+  cat("<div style='background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;'>\n")
+  cat("<h4 style='margin-top: 0;'>Recommended Actions</h4>\n<ol>\n")
+  for (rec in validation@recommendations) {
+    cat(paste0("<li>", rec, "</li>\n"))
+  }
+  cat("</ol>\n</div>")
+} else {
+  cat("*No specific recommendations - data quality is good*")
+}
+```
+
+:::
+
+# Appendix
+
+## Validation Timestamp
+
+```{r timestamp}
+if (!is.null(validation) && !is.null(validation@timestamp)) {
+  cat(paste0("Report generated: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n\n"))
+  cat(paste0("Validation performed: ", format(validation@timestamp, "%Y-%m-%d %H:%M:%S")))
+}
+```
+
+## Thresholds Used
+
+```{r thresholds}
+# Display default thresholds
+thresholds_df <- tibble::tibble(
+  Variable = names(calorimetry_thresholds),
+  Min = purrr::map_dbl(calorimetry_thresholds, ~ .x$min %||% NA),
+  Max = purrr::map_dbl(calorimetry_thresholds, ~ .x$max %||% NA),
+  `Warning Low` = purrr::map_dbl(calorimetry_thresholds, ~ .x$warning_low %||% .x$typical_min %||% NA),
+  `Warning High` = purrr::map_dbl(calorimetry_thresholds, ~ .x$warning_high %||% .x$typical_max %||% NA)
+)
+
+thresholds_df |>
+  gt::gt() |>
+  gt::tab_header(title = "Calorimetry Variable Thresholds") |>
+  gt::fmt_number(columns = 2:5, decimals = 2) |>
+  gt::sub_missing(missing_text = "-")
+```
+
+---
+
+*Generated by oxidizr v`r packageVersion("oxidizr")`*

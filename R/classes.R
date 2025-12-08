@@ -386,3 +386,76 @@ OxidationResults <- S7::new_class(
     )
   )
 )
+
+# -----------------------------------------------------------------------------
+# ValidationResult Class
+# -----------------------------------------------------------------------------
+
+#' Validation Result Class
+#'
+#' S7 class for storing data validation findings from quality checks.
+#'
+#' @param issues A tibble with validation issues found. Columns include:
+#'   check_id, category, variable, severity, message, n_affected, pct_affected,
+#'   subject_ids, time_points, values, threshold, reference.
+#' @param passed Logical indicating if all critical checks passed (no errors)
+#' @param severity_summary Named list with counts by severity level (error, warning, info)
+#' @param data_summary Tibble with data completeness metrics by variable
+#' @param recommendations Character vector of prioritized recommendations
+#' @param timestamp POSIXct timestamp when validation was performed
+#'
+#' @return A ValidationResult S7 object
+#' @usage NULL
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Typically created by validate_study() or validate_calorimetry()
+#' validation <- validate_study(study)
+#' print(validation)
+#' }
+ValidationResult <- S7::new_class(
+  "ValidationResult",
+  properties = list(
+    issues = S7::class_data.frame,
+    passed = S7::new_property(S7::class_logical, default = TRUE),
+    severity_summary = S7::new_property(S7::class_list, default = list()),
+    data_summary = S7::new_property(
+      S7::new_union(S7::class_data.frame, NULL),
+      default = NULL
+    ),
+    recommendations = S7::new_property(S7::class_character, default = character()),
+    timestamp = S7::new_property(
+      S7::new_union(S7::class_any, NULL),
+      default = NULL
+    )
+  ),
+  validator = function(self) {
+    errors <- character()
+
+    # Validate issues has required columns if not empty
+    if (nrow(self@issues) > 0) {
+      required_cols <- c("check_id", "category", "variable", "severity", "message")
+      missing_cols <- setdiff(required_cols, names(self@issues))
+      if (length(missing_cols) > 0) {
+        errors <- c(errors, glue::glue(
+          "Issues tibble missing required columns: {paste(missing_cols, collapse = ', ')}"
+        ))
+      }
+
+      # Validate severity values
+      if ("severity" %in% names(self@issues)) {
+        valid_severities <- c("error", "warning", "info")
+        invalid <- setdiff(unique(self@issues$severity), valid_severities)
+        if (length(invalid) > 0) {
+          errors <- c(errors, glue::glue(
+            "Invalid severity values: {paste(invalid, collapse = ', ')}. ",
+            "Must be one of: {paste(valid_severities, collapse = ', ')}"
+          ))
+        }
+      }
+    }
+
+    if (length(errors) > 0) errors else NULL
+  }
+)

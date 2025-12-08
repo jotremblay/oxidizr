@@ -123,6 +123,55 @@ method(print, OxidationResults) <- function(x, ...) {
   invisible(x)
 }
 
+#' @export
+method(print, ValidationResult) <- function(x, ...) {
+  cli::cli_h1("ValidationResult")
+
+  # Status indicator
+  if (x@passed) {
+    cli::cli_alert_success("Validation PASSED (no errors)")
+  } else {
+    cli::cli_alert_danger("Validation FAILED ({x@severity_summary$error} error(s))")
+  }
+
+  # Severity summary
+  cli::cli_h2("Issues Summary")
+  cli::cli_bullets(c(
+    "!" = "Errors: {x@severity_summary$error %||% 0}",
+    "!" = "Warnings: {x@severity_summary$warning %||% 0}",
+    "i" = "Info: {x@severity_summary$info %||% 0}"
+  ))
+
+  # Show issues by category if any
+  if (nrow(x@issues) > 0) {
+    cli::cli_h2("Issues by Category")
+    categories <- unique(x@issues$category)
+    for (cat in categories) {
+      cat_issues <- x@issues[x@issues$category == cat, ]
+      n_errors <- sum(cat_issues$severity == "error")
+      n_warnings <- sum(cat_issues$severity == "warning")
+      cli::cli_bullets(c(
+        "*" = "{cat}: {n_errors} error(s), {n_warnings} warning(s)"
+      ))
+    }
+  }
+
+  # Recommendations
+  if (length(x@recommendations) > 0) {
+    cli::cli_h2("Recommendations")
+    for (rec in x@recommendations) {
+      cli::cli_bullets(c(">" = rec))
+    }
+  }
+
+  # Timestamp
+  if (!is.null(x@timestamp)) {
+    cli::cli_text(cli::col_grey("Validated: {format(x@timestamp, '%Y-%m-%d %H:%M:%S')}"))
+  }
+
+  invisible(x)
+}
+
 # -----------------------------------------------------------------------------
 # Summary Methods
 # -----------------------------------------------------------------------------
@@ -166,6 +215,33 @@ method(summary, OxidationResults) <- function(object, by = NULL, ...) {
       ) |>
       dplyr::ungroup()
   }
+
+  summary_df
+}
+
+#' @export
+method(summary, ValidationResult) <- function(object, ...) {
+  issues <- object@issues
+
+  if (nrow(issues) == 0) {
+    cli::cli_alert_success("No validation issues found")
+    return(invisible(tibble::tibble()))
+  }
+
+  # Summary by category and severity
+  summary_df <- issues |>
+    dplyr::group_by(.data$category, .data$severity) |>
+    dplyr::summarise(
+      n_issues = dplyr::n(),
+      n_affected = sum(.data$n_affected),
+      variables = paste(unique(.data$variable), collapse = ", "),
+      .groups = "drop"
+    ) |>
+    dplyr::arrange(
+      dplyr::desc(.data$severity == "error"),
+      dplyr::desc(.data$severity == "warning"),
+      .data$category
+    )
 
   summary_df
 }
@@ -216,6 +292,21 @@ method(get_data, OxidationResults) <- function(x, what = c("rates", "energy", "p
   )
   if (is.null(result)) {
     cli::cli_warn("No {what} data available in results")
+    return(NULL)
+  }
+  tibble::as_tibble(result)
+}
+
+#' @export
+method(get_data, ValidationResult) <- function(x, what = c("issues", "summary", "recommendations"), ...) {
+  what <- match.arg(what)
+  result <- switch(what,
+    issues = x@issues,
+    summary = x@data_summary,
+    recommendations = tibble::tibble(recommendation = x@recommendations)
+  )
+  if (is.null(result) || (is.data.frame(result) && nrow(result) == 0)) {
+    cli::cli_warn("No {what} data available in validation results")
     return(NULL)
   }
   tibble::as_tibble(result)

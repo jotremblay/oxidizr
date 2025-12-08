@@ -1,5 +1,6 @@
 #' Package Load Functions
 #'
+#' @name oxidizr-hooks
 #' @keywords internal
 NULL
 

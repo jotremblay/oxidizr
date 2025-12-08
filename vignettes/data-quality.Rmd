@@ -1,0 +1,511 @@
+---
+title: "Data Validation & Quality Control"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data Validation & Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Introduction
+
+Data quality is fundamental to reliable substrate oxidation analysis. The `oxidizr` package provides comprehensive validation tools to:
+
+- Verify data types and structure
+- Check values are within physiological ranges
+- Detect outliers and missing data
+- Identify steady-state periods
+- Generate quality reports
+
+This vignette covers all validation features in detail.
+
+```{r load}
+library(oxidizr)
+library(dplyr)
+```
+
+## The Validation Framework
+
+### ValidationResult Class
+
+All validation functions return a `ValidationResult` S7 object containing:
+
+| Property | Description |
+|----------|-------------|
+| `issues` | Tibble of all detected issues |
+| `passed` | TRUE if no errors (warnings allowed) |
+| `severity_summary` | Counts by severity level |
+| `data_summary` | Completeness metrics |
+| `recommendations` | Suggested actions |
+| `timestamp` | When validation was performed |
+
+### Severity Levels
+
+Issues are categorized by severity:
+
+- **error**: Critical issues that may invalidate results
+- **warning**: Potential problems worth investigating
+- **info**: Informational notes
+
+## Validation Functions
+
+### validate_study()
+
+The main entry point for comprehensive validation:
+
+```{r validate-study}
+# Create sample data with some issues
+set.seed(42)
+df <- tibble(
+  id = rep(1:3, each = 5),
+  time = rep(c(0, 30, 60, 90, 120), 3),
+  vo2 = c(2.5, 2.6, 2.4, 2.5, 2.6,
+          0.15, 2.5, 2.6, 7.5, 2.5,  # Subject 2: out of range
+          2.5, NA, 2.6, 2.5, 2.6),    # Subject 3: missing
+  vco2 = c(2.3, 2.4, 2.2, 2.3, 2.4,
+           2.3, 2.4, 2.2, 2.3, 2.4,
+           2.3, 2.4, 2.2, 2.3, 2.4)
+) |>
+  mutate(rer = vco2 / vo2)
+
+calo <- CalorimetryData(data = df)
+study <- oxidation_study(calorimetry = calo)
+
+# Validate
+validation <- validate_study(study, verbose = TRUE)
+```
+
+### validate_calorimetry()
+
+Focused validation of calorimetry data:
+
+```{r validate-calo}
+validation_calo <- validate_calorimetry(calo)
+print(validation_calo)
+```
+
+### Component Validators
+
+Specialized validators for each data type:
+
+```{r validators, eval=FALSE}
+# Isotope data
+validation_iso <- validate_isotopes(isotope_data)
+
+# Environment data
+validation_env <- validate_environment(environment_data)
+
+# Urea data
+validation_urea <- validate_urea(urea_data)
+
+# Cross-dataset consistency
+validation_consistency <- check_consistency(study)
+```
+
+## Physiological Thresholds
+
+### Default Thresholds
+
+The package includes evidence-based thresholds:
+
+```{r show-thresholds}
+# Calorimetry thresholds
+cat("Calorimetry Thresholds:\n")
+str(calorimetry_thresholds, max.level = 2)
+```
+
+```{r show-thresholds-iso}
+# Isotope thresholds
+cat("\nIsotope Thresholds:\n")
+str(isotope_thresholds, max.level = 2)
+```
+
+### Threshold Fields
+
+Each threshold list contains:
+
+| Field | Description |
+|-------|-------------|
+| `min` | Absolute minimum (error if below) |
+| `max` | Absolute maximum (error if above) |
+| `typical_min` | Typical lower bound (warning if below) |
+| `typical_max` | Typical upper bound (warning if above) |
+| `warning_low` | Warning threshold (low) |
+| `warning_high` | Warning threshold (high) |
+| `unit` | Measurement unit |
+
+### Custom Thresholds
+
+Override defaults for your specific context:
+
+```{r custom-thresh}
+# Custom thresholds for elite athletes
+elite_thresholds <- list(
+  vo2 = list(
+    min = 1.0,
+    max = 7.0,
+    typical_min = 2.5,
+    typical_max = 6.5,
+    unit = "L/min"
+  ),
+  vco2 = list(
+    min = 0.8,
+    max = 7.5,
+    typical_min = 2.2,
+    typical_max = 6.0,
+    unit = "L/min"
+  ),
+  rer = list(
+    min = 0.70,
+    max = 1.25,  # Allow higher for max efforts
+    warning_low = 0.75,
+    warning_high = 1.15
+  )
+)
+
+# Use custom thresholds
+validation_elite <- validate_calorimetry(calo, thresholds = elite_thresholds)
+```
+
+## Working with Validation Results
+
+### Accessing Issues
+
+```{r access-issues}
+# Get issues as tibble
+issues <- get_data(validation, what = "issues")
+
+# Filter by severity
+errors <- issues |> filter(severity == "error")
+warnings <- issues |> filter(severity == "warning")
+
+# Filter by category
+range_issues <- issues |> filter(category == "range")
+```
+
+### Summary Statistics
+
+```{r summary-validation}
+# Summary by category
+summary(validation)
+```
+
+### Recommendations
+
+```{r recommendations}
+# Get recommendations
+recs <- get_data(validation, what = "recommendations")
+if (!is.null(recs) && nrow(recs) > 0) {
+  print(recs)
+}
+```
+
+## Visualization
+
+### Quality Dashboard
+
+```{r quality-dashboard, fig.height=7}
+if (nrow(validation@issues) > 0) {
+  plot_data_quality(validation)
+}
+```
+
+### Missing Data Patterns
+
+```{r missing-heatmap}
+# Heatmap of missing data
+plot_missing_data(calo, type = "heatmap")
+```
+
+```{r missing-bar}
+# Bar plot of missing by variable
+plot_missing_data(calo, type = "bar")
+```
+
+### Range Validation
+
+```{r range-plot}
+# Time series with out-of-range highlighted
+plot_validation_timeseries(calo)
+```
+
+### Outlier Detection
+
+```{r outlier-plot, fig.height=6}
+# Outliers highlighted in time series
+plot_outliers(calo, validation)
+```
+
+## Quality Tables
+
+### Validation Summary Table
+
+```{r tbl-validation}
+tbl_validation_summary(validation, group_by = "category")
+```
+
+### Data Completeness Table
+
+```{r tbl-completeness}
+tbl_data_completeness(calo, by = "variable")
+```
+
+### Outlier Table
+
+```{r tbl-outliers}
+tbl_outliers(validation)
+```
+
+## Steady-State Detection
+
+### Why Steady-State Matters
+
+Substrate oxidation calculations assume steady-state conditions. Non-steady data can lead to:
+
+- Inaccurate RER values
+- Unreliable oxidation estimates
+- Increased measurement noise
+
+### CV Threshold Method
+
+Based on Robergs et al. (2010):
+
+```{r ss-cv}
+# Coefficient of variation method
+ss_cv <- detect_steady_state_cv(
+  calo,
+  variable = "vo2",
+  cv_threshold = 0.10,  # 10% CV
+  window_size = 3
+)
+
+# View CV values
+ss_cv |>
+  select(id, time, vo2, cv, is_steady, meets_duration) |>
+  head(10)
+```
+
+### Rolling Variance Method
+
+```{r ss-var, message=FALSE}
+# Variance method (auto threshold)
+ss_var <- detect_steady_state_variance(
+  calo,
+  variable = "vo2",
+  window_size = 5
+)
+```
+
+### Combined Detection
+
+```{r ss-combined, message=FALSE}
+# Combine both methods for robustness
+ss_combined <- detect_steady_state(
+  calo,
+  variables = c("vo2", "vco2"),
+  cv_threshold = 0.10,
+  method = "both",
+  combine_method = "and",  # Both must agree
+  verbose = FALSE
+)
+```
+
+### Visualizing Steady-State
+
+```{r ss-plot}
+plot_steady_state(ss_combined)
+```
+
+### Steady-State Summary
+
+```{r ss-table}
+tbl_steady_state(ss_combined)
+```
+
+### Filtering to Steady-State
+
+```{r ss-filter}
+# Keep only steady-state observations
+ss_data <- filter_steady_state(calo, ss_combined)
+nrow(ss_data)
+
+# Calculate steady-state statistics
+ss_stats <- calc_steady_state_stats(
+  calo,
+  ss_combined,
+  variables = c("vo2", "vco2")
+)
+print(ss_stats)
+```
+
+## Generating Quality Reports
+
+### HTML Quality Report
+
+```{r quality-report, eval=FALSE}
+# Generate comprehensive quality report
+render_quality_report(
+  study,
+  validation = validation,
+  output_file = "quality_report.html",
+  include_steady_state = TRUE,
+  include_recommendations = TRUE
+)
+```
+
+### Custom Templates
+
+```{r custom-template, eval=FALSE}
+# Create editable template
+create_quality_report_template("my_quality_template.qmd")
+
+# Use custom template
+render_quality_report(
+  study,
+  template = "my_quality_template.qmd",
+  output_file = "custom_report.html"
+)
+```
+
+## Integration with analyze_oxidation()
+
+### Automatic Validation
+
+```{r analyze-validate}
+# Validation runs automatically by default
+results <- analyze_oxidation(
+  study,
+  validate = TRUE,   # Default: TRUE
+  strict = FALSE     # Default: FALSE (warn, don't stop)
+)
+```
+
+### Strict Mode
+
+```{r analyze-strict, eval=FALSE}
+# Stop on validation errors
+results <- analyze_oxidation(
+  study,
+  validate = TRUE,
+  strict = TRUE  # Will error if validation fails
+)
+```
+
+### Accessing Validation from Results
+
+```{r access-validation}
+# Validation is stored in settings
+if (!is.null(results@settings$validation)) {
+  val <- results@settings$validation
+  print(val)
+}
+```
+
+## Best Practices
+
+### 1. Validate Early
+
+Always validate before analysis:
+
+```{r bp1, eval=FALSE}
+validation <- validate_study(study)
+if (!validation@passed) {
+  # Review and address issues
+  render_quality_report(study, validation = validation)
+  stop("Fix data issues before proceeding")
+}
+```
+
+### 2. Document Threshold Decisions
+
+```{r bp2, eval=FALSE}
+# Save your thresholds for reproducibility
+my_thresholds <- list(
+  vo2 = list(min = 0.5, max = 5.0, unit = "L/min"),
+  rer = list(min = 0.70, max = 1.10)
+)
+
+# Document rationale
+comment(my_thresholds) <- "Thresholds for sedentary population, moderate intensity"
+
+saveRDS(my_thresholds, "study_thresholds.rds")
+```
+
+### 3. Check Steady-State
+
+```{r bp3, eval=FALSE}
+# Always verify steady-state before oxidation calculations
+ss <- detect_steady_state(calo, variables = c("vo2", "vco2"))
+
+# Aim for >80% in steady-state
+ss_pct <- mean(ss$meets_duration, na.rm = TRUE) * 100
+if (ss_pct < 80) {
+  warning(sprintf("Only %.1f%% of data in steady-state", ss_pct))
+}
+```
+
+### 4. Generate Reports
+
+```{r bp4, eval=FALSE}
+# Always generate a quality report for documentation
+render_quality_report(
+  study,
+  output_file = sprintf("quality_%s.html", Sys.Date())
+)
+```
+
+## Troubleshooting Common Issues
+
+### High RER Values (>1.0)
+
+```{r trouble-rer, eval=FALSE}
+# Check for non-steady-state periods
+ss <- detect_steady_state(calo)
+non_steady <- calo@data[!ss$meets_duration, ]
+
+# Check for hyperventilation artifacts
+high_rer <- calo@data |> filter(rer > 1.0)
+```
+
+### Missing Data Patterns
+
+```{r trouble-missing, eval=FALSE}
+# Investigate missing data
+plot_missing_data(calo, type = "upset")
+
+# Check if missingness is random or systematic
+missing_by_time <- calo@data |>
+  group_by(time) |>
+  summarise(pct_missing = mean(is.na(vo2)) * 100)
+```
+
+### Outlier Investigation
+
+```{r trouble-outliers, eval=FALSE}
+# Get outlier details
+outliers <- validation@issues |>
+  filter(grepl("outlier", check_id)) |>
+  pull(subject_ids) |>
+  unlist() |>
+  unique()
+
+# Review outlier subjects
+calo@data |> filter(id %in% outliers)
+```
+
+## Session Info
+
+```{r session}
+sessionInfo()
+```

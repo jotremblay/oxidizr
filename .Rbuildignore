@@ -8,3 +8,5 @@
 ^pkgdown$
 ^codecov\.yml$
 ^\.lintr$
+^\.claude$
+^CLAUDE\.md$

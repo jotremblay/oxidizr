@@ -33,7 +33,9 @@ Imports:
     stringr,
     cowplot,
     openxlsx,
-    writexl
+    writexl,
+    slider,
+    scales
 Suggests:
     testthat (>= 3.0.0),
     knitr,
@@ -42,7 +44,8 @@ Suggests:
     afex,
     emmeans,
     targets,
-    tarchetypes
+    tarchetypes,
+    patchwork
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 URL: https://github.com/jtremblay/oxidizr

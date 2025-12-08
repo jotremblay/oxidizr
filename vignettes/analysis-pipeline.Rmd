@@ -1,0 +1,632 @@
+---
+title: "Complete Analysis Pipeline"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Complete Analysis Pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 5,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+## Overview
+
+This vignette documents the complete `oxidizr` analysis pipeline from raw data import through final reporting. The pipeline consists of six key stages:
+1. **Data Import** - Reading data from files or creating data objects
+2. **Data Validation** - Checking data quality and physiological plausibility
+3. **Steady-State Detection** - Identifying valid measurement periods
+4. **Processing & Aggregation** - Filtering and summarizing data
+5. **Oxidation Computation** - Calculating substrate oxidation rates
+6. **Reporting** - Generating visualizations, tables, and reports
+
+```{r flowchart, echo=FALSE, fig.cap="oxidizr Analysis Pipeline"}
+# This would ideally be a diagram, but we'll describe it in text
+cat("
+┌──────────────────────────────────────────────────────────────────┐
+│                      oxidizr Analysis Pipeline                    │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ Data Import │───>│  Validation │───>│ Steady-State        │  │
+│  │             │    │             │    │ Detection           │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+│         │                  │                      │              │
+│         v                  v                      v              │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │ Processing  │<───│  Filtering  │<───│ Quality Report      │  │
+│  │ Aggregation │    │  Time Range │    │                     │  │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘  │
+│         │                                                        │
+│         v                                                        │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              Oxidation Computation                           ││
+│  │  calc_substrate_oxidation() → calc_energy_yield()           ││
+│  │  [Optional: calc_exogenous_cho() → calc_cho_partition()]    ││
+│  └─────────────────────────────────────────────────────────────┘│
+│         │                                                        │
+│         v                                                        │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              Reporting & Visualization                       ││
+│  │  Plots (ggplot2) │ Tables (gt) │ Reports (Quarto)           ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+")
+```
+
+## Quick Start
+
+For those who want to get started immediately, here's the minimal workflow:
+
+```{r quickstart, eval=FALSE}
+library(oxidizr)
+
+# 1. Create or import data
+calo <- CalorimetryData(data = my_data)
+
+# 2. Create study object
+study <- oxidation_study(calorimetry = calo)
+
+# 3. Run complete analysis (includes validation)
+results <- analyze_oxidation(study, validate = TRUE)
+
+# 4. Generate report
+render_oxidation_report(results)
+```
+
+---
+
+## Stage 1: Data Import
+
+### Creating Data Objects
+
+The `oxidizr` package uses S7 classes to organize different types of data. The primary data types are:
+
+| Class | Purpose | Required Data |
+|-------|---------|---------------|
+| `CalorimetryData` | Indirect calorimetry measurements | VO₂, VCO₂, subject ID, time |
+| `IsotopeData` | ¹³C isotope enrichment data | R_exp, R_exo, R_ref |
+| `UreaData` | Nitrogen excretion data | Sweat/urine urea concentrations |
+| `EnvironmentData` | Environmental conditions | Temperature, humidity |
+| `SubjectData` | Participant characteristics | Body mass, VO₂max |
+| `OxidationStudy` | Container for all study data | CalorimetryData (required) |
+
+### From Data Frames
+
+```{r import-df}
+library(oxidizr)
+library(dplyr)
+
+# Simulated calorimetry data
+set.seed(42)
+calo_df <- tibble(
+  id = rep(1:5, each = 8),
+  protocol = rep(rep(c("Control", "Treatment"), each = 4), 5),
+  time = rep(c(30, 60, 90, 120), 10),
+  vo2 = 2.5 + rnorm(40, 0, 0.15),
+  vco2 = 2.3 + rnorm(40, 0, 0.12)
+) |>
+  mutate(rer = vco2 / vo2)
+
+# Create CalorimetryData object
+calo <- CalorimetryData(
+  data = calo_df,
+  id_col = "id",
+  time_col = "time",
+  vo2_col = "vo2",
+  vco2_col = "vco2",
+  vo2_unit = "L/min",
+  protocol_col = "protocol"
+)
+
+print(calo)
+```
+
+### From Files
+
+```{r import-files, eval=FALSE}
+# From CSV
+calo <- read_cosmed_csv("path/to/calorimetry.csv")
+
+# From Excel
+calo <- read_calorimetry_xlsx("path/to/calorimetry.xlsx")
+
+# From Parvo Medics
+calo <- read_parvo("path/to/parvo_export.txt")
+```
+
+### Creating a Complete Study
+
+```{r create-study}
+# For this example, we'll create a study with just calorimetry data
+study <- oxidation_study(calorimetry = calo)
+
+print(study)
+```
+
+---
+
+## Stage 2: Data Validation
+
+Data validation is critical for ensuring physiologically plausible results. The `oxidizr` validation system checks:
+
+- **Range validation**: Values within physiological limits
+- **Missing data**: Completeness assessment
+- **Outlier detection**: Statistical outliers using IQR method
+- **Consistency**: Cross-dataset alignment (IDs, time points)
+
+### Default Thresholds
+
+The package includes literature-based thresholds for common variables:
+
+```{r thresholds}
+# View calorimetry thresholds
+str(calorimetry_thresholds)
+```
+
+### Running Validation
+
+```{r validation}
+# Validate the complete study
+validation <- validate_study(study, verbose = TRUE)
+
+# View results
+print(validation)
+```
+
+### Validation Output
+
+The `ValidationResult` object contains:
+
+```{r validation-details}
+# Summary of issues by category
+summary(validation)
+
+# Access raw issues
+get_data(validation, what = "issues") |>
+  head()
+
+# Get recommendations
+get_data(validation, what = "recommendations")
+```
+
+### Visualizing Data Quality
+
+```{r quality-plots, fig.height=6}
+# Multi-panel quality dashboard
+if (nrow(validation@issues) > 0) {
+  plot_data_quality(validation)
+}
+```
+
+```{r missing-plot}
+# Missing data heatmap
+plot_missing_data(calo, type = "bar")
+```
+
+### Custom Thresholds
+
+You can customize validation thresholds for your specific population:
+
+```{r custom-thresholds, eval=FALSE}
+# Custom thresholds for high-intensity exercise
+custom_thresholds <- list(
+  vo2 = list(min = 1.0, max = 7.0, typical_min = 2.0, typical_max = 6.0),
+  vco2 = list(min = 0.8, max = 7.0, typical_min = 1.8, typical_max = 5.5),
+  rer = list(min = 0.70, max = 1.20, warning_low = 0.75, warning_high = 1.10)
+)
+
+validation <- validate_study(study, thresholds = custom_thresholds)
+```
+
+---
+
+## Stage 3: Steady-State Detection
+
+Reliable oxidation calculations require steady-state conditions. The package provides two methods for detecting steady-state:
+
+### Coefficient of Variation (CV) Method
+
+Based on Robergs et al. (2010), this method identifies periods where CV falls below a threshold:
+
+```{r ss-cv}
+# Detect steady-state using CV method
+ss_cv <- detect_steady_state_cv(
+  calo,
+  variable = "vo2",
+  cv_threshold = 0.10,   # 10% CV threshold
+  window_size = 3,        # 3-point rolling window
+  min_duration = 2        # Minimum 2 consecutive points
+)
+
+head(ss_cv)
+```
+
+### Rolling Variance Method
+
+This method uses rolling variance to detect stable periods:
+
+```{r ss-variance, message=FALSE}
+# Detect using variance method
+ss_var <- detect_steady_state_variance(
+  calo,
+  variable = "vo2",
+  window_size = 5
+)
+```
+
+### Combined Detection
+
+For robustness, combine both methods:
+
+```{r ss-combined, message=FALSE}
+# Combined detection on both VO2 and VCO2
+ss_result <- detect_steady_state(
+  calo,
+  variables = c("vo2", "vco2"),
+  cv_threshold = 0.10,
+  method = "both",          # Use both CV and variance
+  combine_method = "and",   # Both must agree
+  verbose = FALSE
+)
+
+# View steady-state summary
+tbl_steady_state(ss_result)
+```
+
+### Visualizing Steady-State
+
+```{r ss-plot, fig.height=5}
+plot_steady_state(ss_result)
+```
+
+### Filtering to Steady-State Data
+
+```{r ss-filter}
+# Get only steady-state observations
+ss_data <- filter_steady_state(calo, ss_result)
+
+# Calculate statistics during steady-state
+ss_stats <- calc_steady_state_stats(calo, ss_result, variables = c("vo2", "vco2"))
+print(ss_stats)
+```
+---
+
+## Stage 4: Processing & Aggregation
+
+### Time Filtering
+
+Often you'll want to analyze only a specific portion of the exercise:
+
+```{r filter-time}
+# Filter to specific time range (e.g., last hour of exercise)
+calo_filtered <- filter_time_range(calo, time_range = c(60, 120))
+
+# Check the result
+range(calo_filtered@data$time)
+```
+
+### Aggregation
+
+Aggregate data by time point across subjects:
+
+```{r aggregate}
+# Aggregate to mean values per time point
+calo_agg <- aggregate_calorimetry(calo)
+
+head(calo_agg@data)
+```
+
+---
+
+## Stage 5: Oxidation Computation
+
+### Basic Substrate Oxidation
+
+Calculate carbohydrate and fat oxidation using stoichiometric equations:
+
+```{r calc-oxidation}
+# Calculate substrate oxidation
+oxidation <- calc_substrate_oxidation(calo)
+
+# View results
+oxidation |>
+  select(id, time, cho_total, fat_total, rer) |>
+  head(10)
+```
+
+### Energy Contributions
+
+Convert oxidation rates to energy yield:
+
+```{r calc-energy}
+# Calculate energy yield (kcal/min)
+energy <- calc_energy_yield(oxidation)
+
+# Calculate percentage contributions
+energy <- calc_energy_percent(energy)
+
+energy |>
+  select(id, time, e_total, pct_cho_total, pct_fat) |>
+  head()
+```
+
+### Complete Analysis with analyze_oxidation()
+
+The `analyze_oxidation()` function performs the complete workflow:
+
+```{r analyze-complete}
+# Complete analysis (validation + computation)
+results <- analyze_oxidation(
+  study,
+  time_range = c(30, 120),    # Filter time range
+  aggregate = FALSE,           # Keep individual observations
+  calc_energy = TRUE,          # Calculate energy contributions
+  validate = TRUE,             # Run validation first
+  strict = FALSE               # Warn but don't stop on issues
+)
+
+print(results)
+```
+
+### Accessing Results
+
+```{r access-results}
+# Get oxidation rates
+rates <- get_data(results, what = "rates")
+head(rates)
+
+# Get energy contributions
+energy_df <- get_data(results, what = "energy")
+head(energy_df)
+
+# Summary statistics
+summary(results, by = "protocol")
+```
+
+---
+
+## Stage 6: Reporting
+
+### Visualizations
+
+#### Time Course Plots
+
+```{r plot-timecourse}
+# Oxidation time course by protocol
+plot_oxidation_timecourse(results, substrate = "all", by = "protocol")
+```
+
+```{r plot-rer}
+# RER time course
+plot_rer_timecourse(results, by = "protocol")
+```
+
+#### Energy Contributions
+
+```{r plot-energy}
+# Stacked bar chart of energy contributions
+plot_energy_contribution(results, by = "protocol")
+```
+
+### Tables
+
+#### Oxidation Summary
+
+```{r table-ox}
+tbl_oxidation_summary(results, by = "protocol")
+```
+
+#### Energy Contributions
+
+```{r table-energy}
+tbl_energy_contribution(results, by = "protocol")
+```
+
+#### Data Completeness
+
+```{r table-complete}
+tbl_data_completeness(calo, by = "variable")
+```
+
+### Automated Reports
+
+#### Quality Report
+
+Generate a comprehensive data quality report:
+
+```{r quality-report, eval=FALSE}
+# Generate HTML quality report
+render_quality_report(
+  study,
+  output_file = "quality_report.html",
+  include_steady_state = TRUE,
+  include_recommendations = TRUE
+)
+```
+
+#### Analysis Report
+
+Generate a complete analysis report:
+
+```{r analysis-report, eval=FALSE}
+# Generate HTML analysis report
+render_oxidation_report(
+  results,
+  output_file = "oxidation_report.html",
+  title = "Substrate Oxidation Analysis",
+  include_stats = TRUE,
+  include_tables = TRUE
+)
+```
+
+---
+
+## Complete Workflow Example
+
+Here's a complete end-to-end example:
+
+```{r complete-example, eval=FALSE}
+library(oxidizr)
+
+# ============================================
+# STAGE 1: DATA IMPORT
+# ============================================
+
+# Read calorimetry data
+calo <- read_cosmed_csv("data/calorimetry.csv")
+
+# Read subject data
+subjects <- SubjectData(data = read.csv("data/subjects.csv"))
+
+# Create study
+study <- oxidation_study(
+  calorimetry = calo,
+  subjects = subjects
+)
+
+# ============================================
+# STAGE 2: DATA VALIDATION
+# ============================================
+
+# Validate and generate quality report
+validation <- validate_study(study)
+print(validation)
+
+# Generate quality report if issues found
+if (!validation@passed) {
+  render_quality_report(study, validation = validation)
+}
+
+# ============================================
+# STAGE 3: STEADY-STATE DETECTION
+# ============================================
+
+# Detect steady-state periods
+ss_result <- detect_steady_state(
+  calo,
+  variables = c("vo2", "vco2"),
+  cv_threshold = 0.10,
+  method = "both"
+)
+
+# Filter to steady-state only
+calo_ss <- filter_steady_state(calo, ss_result)
+
+# ============================================
+# STAGE 4: PROCESSING
+# ============================================
+
+# Update study with filtered data
+study_ss <- oxidation_study(
+  calorimetry = calo_ss,
+  subjects = subjects
+)
+
+# ============================================
+# STAGE 5: OXIDATION COMPUTATION
+# ============================================
+
+# Run complete analysis
+results <- analyze_oxidation(
+  study_ss,
+  time_range = c(30, 120),
+  calc_energy = TRUE,
+  validate = FALSE  # Already validated
+)
+
+# ============================================
+# STAGE 6: REPORTING
+# ============================================
+
+# Generate final report
+render_oxidation_report(results, output_file = "final_report.html")
+
+# Export tables to Excel
+export_table_xlsx(
+  tbl_oxidation_summary(results),
+  file = "oxidation_summary.xlsx"
+)
+
+# Save figures
+ggsave(
+  "oxidation_timecourse.png",
+  plot_oxidation_timecourse(results),
+  width = 10, height = 6
+)
+```
+
+---
+
+## Best Practices
+
+### 1. Always Validate First
+
+```{r bp-validate, eval=FALSE}
+# Run validation before any analysis
+validation <- validate_study(study)
+if (!validation@passed) {
+  # Review issues before proceeding
+  print(validation)
+  plot_data_quality(validation)
+}
+```
+
+### 2. Check Steady-State
+
+```{r bp-ss, eval=FALSE}
+# Verify data is in steady-state before oxidation calculations
+ss <- detect_steady_state(calo, variables = c("vo2", "vco2"))
+tbl_steady_state(ss)  # Review % in steady-state
+```
+
+### 3. Document Your Thresholds
+
+```{r bp-thresholds, eval=FALSE}
+# Save custom thresholds for reproducibility
+my_thresholds <- list(
+  vo2 = list(min = 0.5, max = 5.0),
+  rer = list(min = 0.70, max = 1.10)
+)
+saveRDS(my_thresholds, "analysis_thresholds.rds")
+```
+
+### 4. Use Reproducible Workflows
+
+Consider using the `targets` package for reproducible pipelines:
+
+```{r bp-targets, eval=FALSE}
+# See vignette("targets-workflow") for details
+library(targets)
+tar_make()
+```
+
+---
+
+## Summary
+
+The `oxidizr` pipeline provides a complete, validated workflow for substrate oxidation analysis:
+
+| Stage | Key Functions | Output |
+|-------|---------------|--------|
+| Import | `CalorimetryData()`, `read_*()` | S7 data objects |
+| Validation | `validate_study()`, `validate_calorimetry()` | `ValidationResult` |
+| Steady-State | `detect_steady_state()` | Filtered data |
+| Processing | `filter_time_range()`, `aggregate_calorimetry()` | Processed data |
+| Computation | `analyze_oxidation()`, `calc_*()` | `OxidationResults` |
+| Reporting | `plot_*()`, `tbl_*()`, `render_*_report()` | Figures, tables, HTML |
+
+## Session Info
+
+```{r session}
+sessionInfo()
+```
