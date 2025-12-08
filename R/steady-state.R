@@ -50,12 +50,12 @@ NULL
 #' ss_strict <- detect_steady_state_cv(calo_data, variable = "vo2", cv_threshold = 0.05)
 #' }
 detect_steady_state_cv <- function(data,
-                                    variable = "vo2",
-                                    cv_threshold = 0.10,
-                                    window_size = 3,
-                                    min_duration = 2,
-                                    id_col = "id",
-                                    time_col = "time") {
+                                   variable = "vo2",
+                                   cv_threshold = 0.10,
+                                   window_size = 3,
+                                   min_duration = 2,
+                                   id_col = "id",
+                                   time_col = "time") {
   # Extract data frame if S7 object
 
   if (S7_inherits(data, CalorimetryData)) {
@@ -210,12 +210,12 @@ detect_steady_state_cv <- function(data,
 #'                                              variance_threshold = 0.01)
 #' }
 detect_steady_state_variance <- function(data,
-                                          variable = "vo2",
-                                          variance_threshold = NULL,
-                                          window_size = 5,
-                                          min_duration = 2,
-                                          id_col = "id",
-                                          time_col = "time") {
+                                         variable = "vo2",
+                                         variance_threshold = NULL,
+                                         window_size = 5,
+                                         min_duration = 2,
+                                         id_col = "id",
+                                         time_col = "time") {
   # Extract data frame if S7 object
   if (S7_inherits(data, CalorimetryData)) {
     id_col <- data@id_col
@@ -376,17 +376,17 @@ detect_steady_state_variance <- function(data,
 #' ss_or <- detect_steady_state(calo_data, method = "both", combine_method = "or")
 #' }
 detect_steady_state <- function(data,
-                                 variables = c("vo2", "vco2"),
-                                 cv_threshold = 0.10,
-                                 variance_threshold = NULL,
-                                 method = c("both", "cv", "variance"),
-                                 combine_method = c("and", "or"),
-                                 window_size_cv = 3,
-                                 window_size_var = 5,
-                                 min_duration = 2,
-                                 id_col = "id",
-                                 time_col = "time",
-                                 verbose = TRUE) {
+                                variables = c("vo2", "vco2"),
+                                cv_threshold = 0.10,
+                                variance_threshold = NULL,
+                                method = c("both", "cv", "variance"),
+                                combine_method = c("and", "or"),
+                                window_size_cv = 3,
+                                window_size_var = 5,
+                                min_duration = 2,
+                                id_col = "id",
+                                time_col = "time",
+                                verbose = TRUE) {
   method <- match.arg(method)
   combine_method <- match.arg(combine_method)
 
@@ -597,15 +597,8 @@ detect_steady_state <- function(data,
 #'
 #' @export
 summarize_steady_state <- function(steady_state_result,
-                                    id_col = "id",
-                                    time_col = "time") {
-  # Get variable info from attributes
-  method <- attr(steady_state_result, "method")
-  variables <- attr(steady_state_result, "variables")
-  if (is.null(variables)) {
-    variables <- attr(steady_state_result, "variable")
-  }
-
+                                   id_col = "id",
+                                   time_col = "time") {
   # Filter to steady-state periods only
   periods_df <- steady_state_result |>
     dplyr::filter(.data$steady_period > 0)
@@ -684,10 +677,10 @@ summarize_steady_state <- function(steady_state_result,
 #'
 #' @export
 filter_steady_state <- function(data,
-                                 steady_state_result,
-                                 require_meets_duration = TRUE,
-                                 id_col = "id",
-                                 time_col = "time") {
+                                steady_state_result,
+                                require_meets_duration = TRUE,
+                                id_col = "id",
+                                time_col = "time") {
   # Extract data frame if S7 object
   if (S7_inherits(data, CalorimetryData)) {
     id_col <- data@id_col
@@ -734,10 +727,10 @@ filter_steady_state <- function(data,
 #'
 #' @export
 calc_steady_state_stats <- function(data,
-                                     steady_state_result,
-                                     variables = c("vo2", "vco2"),
-                                     id_col = "id",
-                                     time_col = "time") {
+                                    steady_state_result,
+                                    variables = c("vo2", "vco2"),
+                                    id_col = "id",
+                                    time_col = "time") {
   # Filter to steady-state
   ss_data <- filter_steady_state(
     data = data,

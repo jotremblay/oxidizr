@@ -113,7 +113,7 @@ method(print, OxidationResults) <- function(x, ...) {
   # Show available substrates
   rate_cols <- names(x@oxidation_rates)
   substrates <- rate_cols[rate_cols %in% c("cho_total", "fat_total", "protein",
-                                            "cho_exo", "cho_endo", "cho_mus", "cho_liv")]
+                                           "cho_exo", "cho_endo", "cho_mus", "cho_liv")]
   if (length(substrates) > 0) {
     cli::cli_bullets(c(
       "*" = "Substrates: {paste(substrates, collapse = ', ')}"

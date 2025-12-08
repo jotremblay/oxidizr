@@ -56,8 +56,9 @@ The typical analysis workflow consists of:
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/jtremblay/oxidizr}
-  \item Report bugs at \url{https://github.com/jtremblay/oxidizr/issues}
+  \item \url{https://jotremblay.github.io/oxidizr/}
+  \item \url{https://github.com/jotremblay/oxidizr}
+  \item Report bugs at \url{https://github.com/jotremblay/oxidizr/issues}
 }
 
 }

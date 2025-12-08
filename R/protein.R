@@ -17,9 +17,9 @@ NULL
 #' @return A tibble with sweat loss estimates (kg)
 #' @export
 calc_sweat_loss <- function(subjects,
-                             calo,
-                             environment,
-                             exercise_duration = 120) {
+                            calo,
+                            environment,
+                            exercise_duration = 120) {
 
   # Extract data from S7 objects or use directly
   if (S7_inherits(subjects, SubjectData)) {
@@ -54,7 +54,7 @@ calc_sweat_loss <- function(subjects,
   }
 
   # Convert VO2/VCO2 to L/min if needed
-  unit_factor <- if (vo2_unit == "mL/min") 1/1000 else 1
+  unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
   # Calculate mean VE per subject (assuming ventilation data or estimate from VO2)
   # VE is typically ~20-25 * VO2 during moderate exercise
@@ -183,9 +183,9 @@ calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
 #'
 #' protein_ox = urea_mass * 2.915 / exercise_duration
 calc_protein_oxidation <- function(urea_loss,
-                                    exercise_duration = 120,
-                                    conversion_factor = 2.915,
-                                    id_col = "id") {
+                                   exercise_duration = 120,
+                                   conversion_factor = 2.915,
+                                   id_col = "id") {
 
   if (!"urea_mass_loss" %in% names(urea_loss)) {
     cli::cli_abort("urea_loss must contain 'urea_mass_loss' column")
@@ -214,8 +214,8 @@ calc_protein_oxidation <- function(urea_loss,
 #' @return A tibble with VO2p and VCO2p values
 #' @export
 calc_protein_gas_exchange <- function(protein_ox,
-                                       vo2_factor = 1.0075,
-                                       vco2_factor = 0.8443) {
+                                      vo2_factor = 1.0075,
+                                      vco2_factor = 0.8443) {
 
   if (is.data.frame(protein_ox)) {
     if (!"protein_ox" %in% names(protein_ox)) {
@@ -244,7 +244,7 @@ calc_protein_gas_exchange <- function(protein_ox,
 #' @return Estimated protein oxidation (g/min or g)
 #' @export
 estimate_protein_simple <- function(total_energy,
-                                     protein_percent = 0.05,
-                                     protein_factor = 4.70) {
+                                    protein_percent = 0.05,
+                                    protein_factor = 4.70) {
   (total_energy * protein_percent) / protein_factor
 }

@@ -24,9 +24,9 @@ NULL
 #'
 #' These values can be customized for specific substrates.
 calc_energy_yield <- function(oxidation,
-                               cho_factor = 3.72,
-                               fat_factor = 9.44,
-                               protein_factor = 4.70) {
+                              cho_factor = 3.72,
+                              fat_factor = 9.44,
+                              protein_factor = 4.70) {
 
   if (!is.data.frame(oxidation)) {
     cli::cli_abort("oxidation must be a data frame")
@@ -242,9 +242,9 @@ summarize_energy <- function(energy, by = NULL) {
 #' @return A tibble with cumulative energy columns added
 #' @export
 calc_cumulative_energy <- function(energy,
-                                    time_col = "time",
-                                    time_interval = 30,
-                                    by = NULL) {
+                                   time_col = "time",
+                                   time_interval = 30,
+                                   by = NULL) {
 
   if (!time_col %in% names(energy)) {
     cli::cli_abort("Time column '{time_col}' not found")

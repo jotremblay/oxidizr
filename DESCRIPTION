@@ -48,5 +48,5 @@ Suggests:
     patchwork
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://github.com/jtremblay/oxidizr
-BugReports: https://github.com/jtremblay/oxidizr/issues
+URL: https://jotremblay.github.io/oxidizr/, https://github.com/jotremblay/oxidizr
+BugReports: https://github.com/jotremblay/oxidizr/issues

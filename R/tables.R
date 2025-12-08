@@ -16,9 +16,9 @@ NULL
 #' @return A gt table object
 #' @export
 tbl_subjects <- function(study,
-                          by = NULL,
-                          vars = NULL,
-                          decimals = 1) {
+                         by = NULL,
+                         vars = NULL,
+                         decimals = 1) {
 
   if (S7_inherits(study, OxidationStudy)) {
     if (is.null(study@subjects)) {
@@ -118,9 +118,9 @@ tbl_subjects <- function(study,
 #' @return A gt table object
 #' @export
 tbl_oxidation_summary <- function(results,
-                                   by = NULL,
-                                   vars = NULL,
-                                   decimals = 2) {
+                                  by = NULL,
+                                  vars = NULL,
+                                  decimals = 2) {
 
   if (S7_inherits(results, OxidationResults)) {
     df <- results@oxidation_rates
@@ -223,10 +223,10 @@ tbl_oxidation_summary <- function(results,
 #' @return A gt table object
 #' @export
 tbl_energy_contribution <- function(results,
-                                     by = NULL,
-                                     show_kcal = TRUE,
-                                     show_percent = TRUE,
-                                     decimals = 1) {
+                                    by = NULL,
+                                    show_kcal = TRUE,
+                                    show_percent = TRUE,
+                                    decimals = 1) {
 
   if (S7_inherits(results, OxidationResults)) {
     df <- results@energy_contributions
@@ -328,8 +328,8 @@ tbl_energy_contribution <- function(results,
 #' @return A gt table object
 #' @export
 tbl_stats <- function(model,
-                       type = c("anova", "posthoc"),
-                       decimals = 3) {
+                      type = c("anova", "posthoc"),
+                      decimals = 3) {
 
   type <- match.arg(type)
 
@@ -398,9 +398,9 @@ export_table_xlsx <- function(tbl, file, sheet = "Sheet1") {
 #' tbl_validation_summary(validation, group_by = "severity")
 #' }
 tbl_validation_summary <- function(validation,
-                                    group_by = c("category", "severity", "variable"),
-                                    show_details = FALSE,
-                                    max_rows = 20) {
+                                   group_by = c("category", "severity", "variable"),
+                                   show_details = FALSE,
+                                   max_rows = 20) {
   group_by <- match.arg(group_by)
 
   if (!S7_inherits(validation, ValidationResult)) {
@@ -509,11 +509,11 @@ tbl_validation_summary <- function(validation,
 #' tbl_data_completeness(calo_data, by = "subject")
 #' }
 tbl_data_completeness <- function(data,
-                                   by = c("variable", "subject"),
-                                   variables = NULL,
-                                   id_col = "id",
-                                   threshold = 95,
-                                   decimals = 1) {
+                                  by = c("variable", "subject"),
+                                  variables = NULL,
+                                  id_col = "id",
+                                  threshold = 95,
+                                  decimals = 1) {
   by <- match.arg(by)
 
   # Extract data
@@ -655,9 +655,9 @@ tbl_data_completeness <- function(data,
 #' tbl_outliers(validation)
 #' }
 tbl_outliers <- function(validation,
-                          max_rows = 50,
-                          show_values = TRUE,
-                          show_thresholds = TRUE) {
+                         max_rows = 50,
+                         show_values = TRUE,
+                         show_thresholds = TRUE) {
   if (!S7_inherits(validation, ValidationResult)) {
     cli::cli_abort("validation must be a ValidationResult object")
   }
@@ -787,8 +787,8 @@ tbl_outliers <- function(validation,
 #' tbl_steady_state(ss_result)
 #' }
 tbl_steady_state <- function(steady_state_result,
-                              id_col = "id",
-                              decimals = 2) {
+                             id_col = "id",
+                             decimals = 2) {
   df <- steady_state_result
 
   # Get method and variables from attributes

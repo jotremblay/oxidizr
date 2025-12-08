@@ -20,13 +20,13 @@ NULL
 #' @return Path to rendered report
 #' @export
 render_oxidation_report <- function(results,
-                                     output_file = "oxidation_report.html",
-                                     template = NULL,
-                                     title = "Substrate Oxidation Analysis",
-                                     author = Sys.info()["user"],
-                                     include_stats = TRUE,
-                                     include_tables = TRUE,
-                                     include_methods = TRUE) {
+                                    output_file = "oxidation_report.html",
+                                    template = NULL,
+                                    title = "Substrate Oxidation Analysis",
+                                    author = Sys.info()["user"],
+                                    include_stats = TRUE,
+                                    include_tables = TRUE,
+                                    include_methods = TRUE) {
 
   if (!requireNamespace("quarto", quietly = TRUE)) {
     cli::cli_abort("Install the 'quarto' package to render reports")
@@ -113,7 +113,7 @@ render_oxidation_report <- function(results,
 #' @return Invisible path to created file
 #' @export
 create_report_template <- function(dest = "oxidation_report.qmd",
-                                    overwrite = FALSE) {
+                                   overwrite = FALSE) {
 
   template <- system.file("templates", "oxidation_report.qmd",
                           package = "oxidizr")
@@ -166,16 +166,16 @@ create_report_template <- function(dest = "oxidation_report.qmd",
 #' render_quality_report(study, validation = validation)
 #' }
 render_quality_report <- function(study,
-                                   validation = NULL,
-                                   output_file = "quality_report.html",
-                                   template = NULL,
-                                   title = "Data Quality Report",
-                                   author = Sys.info()["user"],
-                                   include_steady_state = TRUE,
-                                   include_recommendations = TRUE,
-                                   include_raw_data = FALSE,
-                                   validation_thresholds = NULL,
-                                   open = TRUE) {
+                                  validation = NULL,
+                                  output_file = "quality_report.html",
+                                  template = NULL,
+                                  title = "Data Quality Report",
+                                  author = Sys.info()["user"],
+                                  include_steady_state = TRUE,
+                                  include_recommendations = TRUE,
+                                  include_raw_data = FALSE,
+                                  validation_thresholds = NULL,
+                                  open = TRUE) {
 
   if (!requireNamespace("quarto", quietly = TRUE)) {
     cli::cli_abort("Install the 'quarto' package to render reports: install.packages('quarto')")
@@ -285,7 +285,7 @@ render_quality_report <- function(study,
 #' create_quality_report_template("my_quality_template.qmd")
 #' }
 create_quality_report_template <- function(dest = "quality_report.qmd",
-                                            overwrite = FALSE) {
+                                           overwrite = FALSE) {
 
   template <- system.file("templates", "quality_report.qmd", package = "oxidizr")
 

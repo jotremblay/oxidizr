@@ -83,9 +83,9 @@ calc_rref <- function(isotopes, control_protocol, by_time = TRUE) {
 #' - Rexo = 13C enrichment of ingested substrate
 #' - 0.747 = L CO2 per gram CHO oxidized (Péronnet & Massicotte, 1991; Telmosse, 2022)
 calc_exogenous_cho <- function(calo,
-                                isotopes,
-                                rref,
-                                co2_cho_ratio = 0.747) {
+                               isotopes,
+                               rref,
+                               co2_cho_ratio = 0.747) {
 
   if (!S7_inherits(calo, CalorimetryData)) {
     cli::cli_abort("calo must be a CalorimetryData object")
@@ -112,7 +112,7 @@ calc_exogenous_cho <- function(calo,
   rexo_col <- isotopes@rexo_col
 
   # Unit conversion
-  unit_factor <- if (vo2_unit == "mL/min") 1/1000 else 1
+  unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
   # Handle rref - can be a data frame or single value
   if (is.data.frame(rref)) {
@@ -211,7 +211,6 @@ calc_fexo <- function(isotopes, rref) {
   rpla_df <- isotopes@rpla
   rexo_df <- isotopes@rexo
 
-  id_col <- isotopes@id_col
   time_col <- isotopes@time_col
   protocol_col <- isotopes@protocol_col
   rpla_col <- isotopes@rpla_col
@@ -274,9 +273,9 @@ calc_fexo <- function(isotopes, rref) {
 #' This represents total CHO oxidation from plasma glucose pool.
 #' The 0.747 L CO2 per gram CHO oxidized factor is based on Péronnet & Massicotte (1991) and presented in Telmosse (2022).
 calc_plasma_cho <- function(calo,
-                             isotopes,
-                             rref,
-                             co2_cho_ratio = 0.747) {
+                            isotopes,
+                            rref,
+                            co2_cho_ratio = 0.747) {
 
   if (!S7_inherits(calo, CalorimetryData)) {
     cli::cli_abort("calo must be a CalorimetryData object")
@@ -303,7 +302,7 @@ calc_plasma_cho <- function(calo,
   rexp_col <- isotopes@rexp_col
   rpla_col <- isotopes@rpla_col
 
-  unit_factor <- if (vo2_unit == "mL/min") 1/1000 else 1
+  unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
   # Handle rref
   if (is.data.frame(rref)) {

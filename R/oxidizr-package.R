@@ -110,6 +110,7 @@ utils::globalVariables(c(
   "n_affected", "pct_affected", "subject_ids", "time_points", "values",
   "threshold", "reference", "n_issues", "errors", "warnings", "info",
   "total_affected", "fill_color",
+  "ValidationResult", "validate_study", "calorimetry_thresholds",
 
   # Steady-state columns
   "cv", "variance", "variance_threshold", "is_steady", "steady_period",

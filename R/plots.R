@@ -378,12 +378,8 @@ plot_energy_contribution <- function(results,
   # Select columns based on partition
   if (partition && "pct_cho_exo" %in% names(df)) {
     pct_cols <- c("pct_cho_exo", "pct_cho_endo", "pct_fat", "pct_protein")
-    labels <- c("Exogenous CHO", "Endogenous CHO", "Fat", "Protein")
-    colors <- c("#E41A1C", "#FF7F00", "#FFFF33", "#000000")
   } else {
     pct_cols <- c("pct_cho_total", "pct_fat", "pct_protein")
-    labels <- c("Total CHO", "Fat", "Protein")
-    colors <- c("#FFC0CB", "#FFFF33", "#000000")
   }
 
   available_cols <- intersect(pct_cols, names(df))
@@ -785,23 +781,6 @@ plot_steady_state <- function(steady_state_result,
     cli::cli_abort("Variable '{variable}' not found in steady_state_result")
   }
 
-  # Determine what's available
-  has_cv <- "cv" %in% names(df) || any(grepl("_cv$", names(df)))
-  has_variance <- "variance" %in% names(df) || any(grepl("_variance$", names(df)))
-
-  # Get CV/variance column names
-  cv_col <- if ("cv" %in% names(df)) "cv" else paste0(variable, "_cv")
-  var_col <- if ("variance" %in% names(df)) "variance" else paste0(variable, "_variance")
-
-  # Get steady indicator
-  steady_col <- if ("is_steady_all" %in% names(df)) {
-    "is_steady_all"
-  } else if ("is_steady" %in% names(df)) {
-    "is_steady"
-  } else {
-    paste0(variable, "_steady")
-  }
-
   n_subjects <- length(unique(df[[id_col]]))
 
   # Auto-facet for multiple subjects
@@ -845,7 +824,6 @@ plot_steady_state <- function(steady_state_result,
 
   # Add threshold lines if available
   cv_threshold <- attr(df, "cv_threshold")
-  variance_threshold <- attr(df, "variance_threshold")
 
   # Facet if needed
   if (!is.null(facet_by) && facet_by %in% names(df)) {

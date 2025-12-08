@@ -246,17 +246,17 @@ empty_issues <- function() {
 #' @return Updated issues tibble
 #' @keywords internal
 add_issue <- function(issues,
-                       check_id,
-                       category,
-                       variable,
-                       severity,
-                       message,
-                       n_affected = 0L,
-                       n_total = 0L,
-                       subject_ids = NULL,
-                       time_points = NULL,
-                       values = NULL,
-                       threshold = "",
+                      check_id,
+                      category,
+                      variable,
+                      severity,
+                      message,
+                      n_affected = 0L,
+                      n_total = 0L,
+                      subject_ids = NULL,
+                      time_points = NULL,
+                      values = NULL,
+                      threshold = "",
                        reference = "") {
 
   pct_affected <- if (n_total > 0) round(n_affected / n_total * 100, 2) else 0
@@ -368,15 +368,15 @@ calc_completeness <- function(data, variables = NULL) {
 #' print(validation)
 #' }
 validate_calorimetry <- function(calo,
-                                  thresholds = NULL,
-                                  check_outliers = TRUE,
-                                  check_missing = TRUE,
-                                  check_rer = TRUE,
-                                  id_col = NULL,
-                                  time_col = NULL,
-                                  vo2_col = NULL,
-                                  vco2_col = NULL,
-                                  vo2_unit = "L/min") {
+                                 thresholds = NULL,
+                                 check_outliers = TRUE,
+                                 check_missing = TRUE,
+                                 check_rer = TRUE,
+                                 id_col = NULL,
+                                 time_col = NULL,
+                                 vo2_col = NULL,
+                                 vco2_col = NULL,
+                                 vo2_unit = "L/min") {
 
   # Use default thresholds if not provided
   if (is.null(thresholds)) {
@@ -384,7 +384,7 @@ validate_calorimetry <- function(calo,
   }
 
   # Extract data and column names
- if (S7_inherits(calo, CalorimetryData)) {
+  if (S7_inherits(calo, CalorimetryData)) {
     data <- calo@data
     id_col <- calo@id_col
     time_col <- calo@time_col
@@ -401,7 +401,7 @@ validate_calorimetry <- function(calo,
   }
 
   # Convert units if needed
-  unit_factor <- if (vo2_unit == "mL/min") 1/1000 else 1
+  unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
   vo2_vals <- data[[vo2_col]] * unit_factor
   vco2_vals <- data[[vco2_col]] * unit_factor
 
@@ -788,9 +788,9 @@ validate_calorimetry <- function(calo,
 #' @return A ValidationResult S7 object
 #' @export
 validate_isotopes <- function(isotopes,
-                               thresholds = NULL,
-                               check_enrichment_order = TRUE,
-                               check_missing = TRUE) {
+                              thresholds = NULL,
+                              check_enrichment_order = TRUE,
+                              check_missing = TRUE) {
 
   if (!S7_inherits(isotopes, IsotopeData)) {
     cli::cli_abort("isotopes must be an IsotopeData object")
@@ -1015,7 +1015,7 @@ validate_isotopes <- function(isotopes,
 #' @return A ValidationResult S7 object
 #' @export
 validate_environment <- function(environment,
-                                  thresholds = NULL) {
+                                 thresholds = NULL) {
 
   if (!S7_inherits(environment, EnvironmentData)) {
     cli::cli_abort("environment must be an EnvironmentData object")
@@ -1539,10 +1539,10 @@ check_consistency <- function(study) {
 #' validation <- validate_study(study, strict = TRUE)
 #' }
 validate_study <- function(study,
-                            strict = FALSE,
-                            thresholds = NULL,
-                            checks = NULL,
-                            verbose = TRUE) {
+                           strict = FALSE,
+                           thresholds = NULL,
+                           checks = NULL,
+                           verbose = TRUE) {
 
   if (!S7_inherits(study, OxidationStudy)) {
     cli::cli_abort("study must be an OxidationStudy object")

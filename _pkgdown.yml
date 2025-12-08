@@ -22,12 +22,6 @@ navbar:
           href: articles/analysis-pipeline.html
         - text: Data Validation & Quality
           href: articles/data-quality.html
-        - text: "---"
-        - text: Advanced Topics
-        - text: Isotope Tracer Analysis
-          href: articles/isotope-analysis.html
-        - text: Using with targets
-          href: articles/targets-workflow.html
 
 reference:
   - title: "Data Classes"
@@ -79,11 +73,28 @@ reference:
       - calc_cho_partition
       - calc_exogenous_cho
       - calc_plasma_cho
-      - calc_protein_oxidation
-      - calc_energy_yield
-      - calc_energy_percent
+      - calc_fexo
       - calc_rref
       - stoich_coefficients
+
+  - title: "Protein Calculations"
+    desc: "Functions for protein oxidation from urea"
+    contents:
+      - calc_protein_oxidation
+      - calc_protein_gas_exchange
+      - calc_sweat_loss
+      - calc_urea_loss
+      - estimate_protein_simple
+
+  - title: "Energy Calculations"
+    desc: "Functions for energy yield and contributions"
+    contents:
+      - calc_energy_yield
+      - calc_energy_percent
+      - calc_total_energy
+      - calc_cumulative_energy
+      - summarize_energy
+      - energy_factors
 
   - title: "Data Import"
     desc: "Functions for reading calorimetry data from various formats"
@@ -95,6 +106,9 @@ reference:
     contents:
       - filter_time_range
       - aggregate_calorimetry
+      - normalize_gas_units
+      - calc_rer
+      - as_numeric_time
 
   - title: "Visualization"
     desc: "ggplot2-based plotting functions"
@@ -148,6 +162,26 @@ reference:
     desc: "Helper functions"
     contents:
       - starts_with("format_")
+      - list_columns
+      - quick_summary
+
+  - title: "Package Documentation"
+    desc: "Internal documentation pages"
+    contents:
+      - oxidizr-package
+      - oxidizr-classes
+      - oxidizr-generics
+      - calorimetry
+      - energy
+      - isotopes
+      - oxidation
+      - plots
+      - protein
+      - reports
+      - steady-state
+      - tables
+      - utils
+      - validation
 
 articles:
   - title: Getting Started
@@ -159,8 +193,3 @@ articles:
     contents:
       - analysis-pipeline
       - data-quality
-
-  - title: Advanced Topics
-    contents:
-      - isotope-analysis
-      - targets-workflow

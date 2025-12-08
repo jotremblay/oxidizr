@@ -38,8 +38,8 @@ NULL
 #' ox <- calc_substrate_oxidation(calo_data, protein_ox = protein)
 #' }
 calc_substrate_oxidation <- function(calo,
-                                      protein_ox = NULL,
-                                      coefficients = stoich_coefficients) {
+                                     protein_ox = NULL,
+                                     coefficients = stoich_coefficients) {
 
   if (!S7_inherits(calo, CalorimetryData)) {
     cli::cli_abort("calo must be a CalorimetryData object")
@@ -54,7 +54,7 @@ calc_substrate_oxidation <- function(calo,
   protocol_col <- calo@protocol_col
 
   # Convert to L/min if needed
-  unit_factor <- if (vo2_unit == "mL/min") 1/1000 else 1
+  unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
   result <- calo_df |>
     dplyr::mutate(
@@ -155,8 +155,8 @@ calc_substrate_oxidation <- function(calo,
 #' - CHOmus = CHOtot - CHOpla (muscle = total - plasma-derived)
 #' - CHOliv = CHOpla - CHOexo (liver output = plasma - exogenous)
 calc_cho_partition <- function(substrate_ox,
-                                cho_exo,
-                                cho_pla = NULL) {
+                               cho_exo,
+                               cho_pla = NULL) {
 
   # Identify ID and time columns
   common_cols <- intersect(names(substrate_ox), names(cho_exo))
@@ -212,12 +212,12 @@ calc_cho_partition <- function(substrate_ox,
 #' @return An OxidationStudy S7 object
 #' @export
 oxidation_study <- function(calorimetry,
-                             isotopes = NULL,
-                             urea = NULL,
-                             environment = NULL,
-                             subjects = NULL,
-                             protocols = NULL,
-                             ...) {
+                            isotopes = NULL,
+                            urea = NULL,
+                            environment = NULL,
+                            subjects = NULL,
+                            protocols = NULL,
+                            ...) {
 
   # Convert calorimetry to S7 if data frame
   if (is.data.frame(calorimetry) && !S7_inherits(calorimetry, CalorimetryData)) {
@@ -278,13 +278,13 @@ oxidation_study <- function(calorimetry,
 #' results <- analyze_oxidation(study, validate = FALSE)
 #' }
 analyze_oxidation <- function(study,
-                               time_range = NULL,
-                               aggregate = FALSE,
-                               calc_energy = TRUE,
-                               control_protocol = NULL,
-                               validate = TRUE,
-                               strict = FALSE,
-                               validation_thresholds = NULL) {
+                              time_range = NULL,
+                              aggregate = FALSE,
+                              calc_energy = TRUE,
+                              control_protocol = NULL,
+                              validate = TRUE,
+                              strict = FALSE,
+                              validation_thresholds = NULL) {
 
   if (!S7_inherits(study, OxidationStudy)) {
     cli::cli_abort("study must be an OxidationStudy object")

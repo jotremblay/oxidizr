@@ -31,19 +31,19 @@ NULL
 #'                          vco2_col = "VCO2")
 #' }
 read_calorimetry <- function(file,
-                              format = c("auto", "csv", "xlsx"),
-                              id_col = "id",
-                              time_col = "time",
-                              vo2_col = "vo2",
-                              vco2_col = "vco2",
-                              vo2_unit = "L/min",
-                              protocol_col = NULL,
-                              sheet = 1,
-                              ...) {
+                             format = c("auto", "csv", "xlsx"),
+                             id_col = "id",
+                             time_col = "time",
+                             vo2_col = "vo2",
+                             vco2_col = "vco2",
+                             vo2_unit = "L/min",
+                             protocol_col = NULL,
+                             sheet = 1,
+                             ...) {
   format <- match.arg(format)
 
   # Auto-detect format
- if (format == "auto") {
+  if (format == "auto") {
     ext <- tolower(tools::file_ext(file))
     format <- switch(ext,
       "csv" = "csv",
@@ -117,7 +117,7 @@ normalize_gas_units <- function(calo, to_unit = "L/min") {
   }
 
   data <- calo@data
-  factor <- if (to_unit == "L/min") 1/1000 else 1000
+  factor <- if (to_unit == "L/min") 1 / 1000 else 1000
 
   data[[calo@vo2_col]] <- data[[calo@vo2_col]] * factor
   data[[calo@vco2_col]] <- data[[calo@vco2_col]] * factor
