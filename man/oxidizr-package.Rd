@@ -44,6 +44,46 @@ The typical analysis workflow consists of:
 }
 }
 
+\section{Edge Cases and Data Quality}{
+
+
+\strong{Extreme RER Values:}
+\itemize{
+\item RER < 0.70: Physiologically impossible. Indicates measurement error,
+gas analyzer calibration issues, or data entry problems. These values
+are flagged as errors by \code{validate_study()}.
+\item RER 0.70-0.75: Unusually low for exercise. May indicate very high
+fat oxidation, prolonged fasting, or measurement drift. Review data
+for potential issues.
+\item RER 0.95-1.00: Approaching anaerobic threshold. Consider whether
+exercise intensity was appropriate for substrate oxidation assessment.
+\item RER > 1.00: Indicates hyperventilation, non-steady state, or
+anaerobic metabolism. Data above 1.10 should be excluded for substrate
+oxidation calculations.
+}
+
+\strong{Small Sample Sizes (< 3 subjects):}
+\itemize{
+\item Statistical analyses (standard deviation, coefficient of variation)
+may be unreliable with fewer than 3 subjects.
+\item Steady-state detection CV thresholds were validated on larger samples;
+use caution with n < 3.
+\item Consider reporting individual subject data rather than group means
+for very small samples.
+}
+
+\strong{Missing Data (NA values):}
+\itemize{
+\item \code{calc_substrate_oxidation()} offers three NA handling strategies
+via the \code{na_protein_action} parameter: "mean" (impute with group mean),
+"zero" (assume negligible protein), or "error" (strict validation).
+\item Validation functions report missing data patterns to help identify
+systematic vs. random missingness.
+\item For isotope calculations, missing \code{rref} values can be provided as
+numeric constants or calculated from control protocol data.
+}
+}
+
 \section{Vignettes}{
 
 \itemize{

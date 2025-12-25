@@ -362,6 +362,17 @@ detect_steady_state_variance <- function(data,
 #'   - `meets_duration`: Logical indicating if period meets minimum duration
 #'   - `method`: The detection method used
 #'
+#' @section Small Sample Considerations:
+#' CV and variance-based methods require sufficient data points within each
+#' window. With fewer than 3 subjects or limited time points:
+#' \itemize{
+#'   \item Consider reducing `window_size_cv` or `window_size_var` if data
+#'     is sparse
+#'   \item CV calculations may be unstable with small samples
+#'   \item Visual inspection of individual subject traces is recommended
+#'   \item Default thresholds were validated on samples with n >= 5 subjects
+#' }
+#'
 #' @export
 #'
 #' @examples

@@ -13,13 +13,21 @@ NULL
 #' @param calo A CalorimetryData object for respiratory calculations
 #' @param environment An EnvironmentData object for vapor pressure calculations
 #' @param exercise_duration Exercise duration in minutes (default: 120)
+#' @param baseline_water_ml Baseline water intake in mL added to fluid balance
+#'   calculation (default: 2000). Set to 0 if baseline water is already included
+#'   in the water_ingested column of SubjectData.
+#' @param ve_vo2_ratio Ventilation to VO2 ratio used to estimate minute
+#'   ventilation when VE data is not available (default: 25). Typical range
+#'   during moderate exercise is 20-30.
 #'
 #' @return A tibble with sweat loss estimates (kg)
 #' @export
 calc_sweat_loss <- function(subjects,
                             calo,
                             environment,
-                            exercise_duration = 120) {
+                            exercise_duration = 120,
+                            baseline_water_ml = 2000,
+                            ve_vo2_ratio = 25) {
 
   # Extract data from S7 objects or use directly
   if (S7_inherits(subjects, SubjectData)) {
@@ -63,8 +71,8 @@ calc_sweat_loss <- function(subjects,
     dplyr::summarise(
       VO2_mean = mean(.data[[vo2_col]], na.rm = TRUE) * unit_factor,
       VCO2_mean = mean(.data[[vco2_col]], na.rm = TRUE) * unit_factor,
-      # Estimate VE if not available (typical VE/VO2 ratio ~25)
-      VE_mean = VO2_mean * 25,
+      # Estimate VE if not available (uses ve_vo2_ratio parameter)
+      VE_mean = VO2_mean * ve_vo2_ratio,
       .groups = "drop"
     )
 
@@ -92,9 +100,8 @@ calc_sweat_loss <- function(subjects,
                                   .data[[pressure_col]]) / 760)) / (273 + 37)) / 22.4) * 18,
 
       # Mass balance
-      # Note: 2000 mL is baseline water intake in original protocol
       body_mass_gain = .data[[initial_mass_col]] +
-        (.data[[water_col]] + 2000 + .data[[saline_col]]) / 1000,
+        (.data[[water_col]] + baseline_water_ml + .data[[saline_col]]) / 1000,
       mass_lost = (.data$expired_gas_lost + .data$H2O_mass_lost) / 1000,
       virtual_mass = .data$body_mass_gain - .data$mass_lost,
       sweat_loss = .data$virtual_mass - .data[[final_mass_col]]

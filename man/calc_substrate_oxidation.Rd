@@ -7,7 +7,8 @@
 calc_substrate_oxidation(
   calo,
   protein_ox = NULL,
-  coefficients = stoich_coefficients
+  coefficients = stoich_coefficients,
+  na_protein_action = c("mean", "zero", "error")
 )
 }
 \arguments{
@@ -16,6 +17,14 @@ calc_substrate_oxidation(
 \item{protein_ox}{Optional protein oxidation data (from calc_protein_oxidation)}
 
 \item{coefficients}{Stoichiometric coefficients (default: stoich_coefficients)}
+
+\item{na_protein_action}{How to handle NA values in protein oxidation data.
+One of:
+\itemize{
+\item \code{"mean"} (default): Replace NA with group mean, then 0 if all NA
+\item \code{"zero"}: Replace NA with 0 (assume negligible protein contribution)
+\item \code{"error"}: Raise an error if any NA values are present
+}}
 }
 \value{
 A tibble with CHO and fat oxidation rates (g/min)
@@ -39,6 +48,22 @@ Substrate oxidation:
 \item CHO (g/min) = 4.618 * VCO2np - 3.279 * VO2np
 \item Fat (g/min) = -1.712 * VCO2np + 1.712 * VO2np
 }
+\subsection{NA Handling Strategies}{
+
+When protein oxidation data contains NA values, the \code{na_protein_action}
+parameter controls behavior:
+\itemize{
+\item \strong{"mean"}: Imputes missing values with the mean of available protein
+oxidation values. If all values are NA, uses 0. This preserves the
+group average contribution but may not be appropriate for studies
+with large inter-subject variability.
+\item \strong{"zero"}: Treats missing protein oxidation as zero contribution.
+Appropriate when protein contribution is expected to be negligible
+(< 5\% of total energy) or when conservative estimates are preferred.
+\item \strong{"error"}: Raises an error if any NA values are present. Recommended
+for automated pipelines where missing data should halt processing.
+}
+}
 }
 \examples{
 \dontrun{
@@ -48,5 +73,9 @@ ox <- calc_substrate_oxidation(calo_data)
 # With protein correction
 protein <- calc_protein_oxidation(urea_loss)
 ox <- calc_substrate_oxidation(calo_data, protein_ox = protein)
+
+# Strict mode for automated pipelines
+ox <- calc_substrate_oxidation(calo_data, protein_ox = protein,
+                               na_protein_action = "error")
 }
 }

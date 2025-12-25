@@ -66,6 +66,19 @@ A tibble with columns:
 Combines CV threshold and rolling variance methods for robust steady-state
 detection. Can use either method alone or both with configurable combination logic.
 }
+\section{Small Sample Considerations}{
+
+CV and variance-based methods require sufficient data points within each
+window. With fewer than 3 subjects or limited time points:
+\itemize{
+\item Consider reducing \code{window_size_cv} or \code{window_size_var} if data
+is sparse
+\item CV calculations may be unstable with small samples
+\item Visual inspection of individual subject traces is recommended
+\item Default thresholds were validated on samples with n >= 5 subjects
+}
+}
+
 \examples{
 \dontrun{
 # Combined detection on VO2 and VCO2

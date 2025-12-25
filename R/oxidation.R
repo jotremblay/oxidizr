@@ -12,6 +12,11 @@ NULL
 #' @param calo A CalorimetryData object
 #' @param protein_ox Optional protein oxidation data (from calc_protein_oxidation)
 #' @param coefficients Stoichiometric coefficients (default: stoich_coefficients)
+#' @param na_protein_action How to handle NA values in protein oxidation data.
+#'   One of:
+#'   - `"mean"` (default): Replace NA with group mean, then 0 if all NA
+#'   - `"zero"`: Replace NA with 0 (assume negligible protein contribution)
+#'   - `"error"`: Raise an error if any NA values are present
 #'
 #' @return A tibble with CHO and fat oxidation rates (g/min)
 #' @export
@@ -28,6 +33,23 @@ NULL
 #' - CHO (g/min) = 4.618 * VCO2np - 3.279 * VO2np
 #' - Fat (g/min) = -1.712 * VCO2np + 1.712 * VO2np
 #'
+#' ## NA Handling Strategies
+#'
+#' When protein oxidation data contains NA values, the `na_protein_action`
+#' parameter controls behavior:
+#'
+#' - **"mean"**: Imputes missing values with the mean of available protein
+#'   oxidation values. If all values are NA, uses 0. This preserves the
+#'   group average contribution but may not be appropriate for studies
+#'   with large inter-subject variability.
+#'
+#' - **"zero"**: Treats missing protein oxidation as zero contribution.
+#'   Appropriate when protein contribution is expected to be negligible
+#'   (< 5% of total energy) or when conservative estimates are preferred.
+#'
+#' - **"error"**: Raises an error if any NA values are present. Recommended
+#'   for automated pipelines where missing data should halt processing.
+#'
 #' @examples
 #' \dontrun{
 #' # Basic calculation (assuming negligible protein contribution)
@@ -36,10 +58,17 @@ NULL
 #' # With protein correction
 #' protein <- calc_protein_oxidation(urea_loss)
 #' ox <- calc_substrate_oxidation(calo_data, protein_ox = protein)
+#'
+#' # Strict mode for automated pipelines
+#' ox <- calc_substrate_oxidation(calo_data, protein_ox = protein,
+#'                                na_protein_action = "error")
 #' }
 calc_substrate_oxidation <- function(calo,
                                      protein_ox = NULL,
-                                     coefficients = stoich_coefficients) {
+                                     coefficients = stoich_coefficients,
+                                     na_protein_action = c("mean", "zero", "error")) {
+
+  na_protein_action <- match.arg(na_protein_action)
 
   if (!S7_inherits(calo, CalorimetryData)) {
     cli::cli_abort("calo must be a CalorimetryData object")
@@ -79,16 +108,32 @@ calc_substrate_oxidation <- function(calo,
         dplyr::mutate(protein_ox = protein_ox)
     }
 
-    # Replace NA protein with mean or 0
-    result <- result |>
-      dplyr::mutate(
-        protein_ox = dplyr::if_else(
-          is.na(.data$protein_ox),
-          mean(.data$protein_ox, na.rm = TRUE),
-          .data$protein_ox
-        ),
-        protein_ox = dplyr::if_else(is.na(.data$protein_ox), 0, .data$protein_ox)
-      )
+    # Handle NA values in protein oxidation based on na_protein_action
+    n_na <- sum(is.na(result$protein_ox))
+    if (n_na > 0) {
+      if (na_protein_action == "error") {
+        cli::cli_abort(c(
+          "Found {n_na} NA value{?s} in protein oxidation data.",
+          "i" = "Use {.arg na_protein_action = 'mean'} or {.code 'zero'} to handle NAs.",
+          "i" = "Or ensure protein_ox data has no missing values."
+        ))
+      } else if (na_protein_action == "zero") {
+        cli::cli_alert_info("Replacing {n_na} NA protein oxidation value{?s} with 0.")
+        result <- result |>
+          dplyr::mutate(protein_ox = dplyr::if_else(is.na(.data$protein_ox), 0, .data$protein_ox))
+      } else {
+        # na_protein_action == "mean"
+        mean_val <- mean(result$protein_ox, na.rm = TRUE)
+        if (is.na(mean_val)) {
+          cli::cli_alert_warning("All protein oxidation values are NA; using 0.")
+          mean_val <- 0
+        } else {
+          cli::cli_alert_info("Replacing {n_na} NA protein oxidation value{?s} with mean ({round(mean_val, 4)} g/min).")
+        }
+        result <- result |>
+          dplyr::mutate(protein_ox = dplyr::if_else(is.na(.data$protein_ox), mean_val, .data$protein_ox))
+      }
+    }
 
     # Calculate non-protein gas exchange
     result <- result |>
@@ -145,6 +190,8 @@ calc_substrate_oxidation <- function(calo,
 #' @param substrate_ox Substrate oxidation from calc_substrate_oxidation
 #' @param cho_exo Exogenous CHO oxidation from calc_exogenous_cho
 #' @param cho_pla Plasma CHO oxidation from calc_plasma_cho (optional)
+#' @param id_col Name of the ID column (auto-detected if NULL)
+#' @param time_col Name of the time column (auto-detected if NULL)
 #'
 #' @return A tibble with partitioned CHO oxidation rates
 #' @export
@@ -154,16 +201,56 @@ calc_substrate_oxidation <- function(calo,
 #' - CHOendo = CHOtot - CHOexo (endogenous = total - exogenous)
 #' - CHOmus = CHOtot - CHOpla (muscle = total - plasma-derived)
 #' - CHOliv = CHOpla - CHOexo (liver output = plasma - exogenous)
+#'
+#' Column auto-detection looks for common columns between inputs matching
+#' patterns "id", "ID", "subject" for ID and "time", "Time", "timepoint" for time.
+#' If no match is found, an error is raised. Use explicit column parameters
+#' when using non-standard column names.
 calc_cho_partition <- function(substrate_ox,
                                cho_exo,
-                               cho_pla = NULL) {
+                               cho_pla = NULL,
+                               id_col = NULL,
+                               time_col = NULL) {
 
-  # Identify ID and time columns
+  # Identify common columns between inputs
   common_cols <- intersect(names(substrate_ox), names(cho_exo))
-  id_col <- common_cols[common_cols %in% c("id", "ID", "subject")]
-  if (length(id_col) == 0) id_col <- common_cols[1]
-  time_col <- common_cols[common_cols %in% c("time", "Time", "timepoint")]
-  if (length(time_col) == 0) time_col <- common_cols[2]
+
+  # Auto-detect or validate ID column
+
+  if (is.null(id_col)) {
+    id_candidates <- common_cols[common_cols %in% c("id", "ID", "subject")]
+    if (length(id_candidates) == 0) {
+      cli::cli_abort(c(
+        "Cannot auto-detect ID column.",
+        "i" = "No common column matching 'id', 'ID', or 'subject' found.",
+        "i" = "Use {.arg id_col} to specify the ID column explicitly."
+      ))
+    }
+    id_col <- id_candidates[1]
+  } else if (!id_col %in% common_cols) {
+    cli::cli_abort(c(
+      "ID column {.val {id_col}} not found in both inputs.",
+      "i" = "Common columns: {.val {common_cols}}"
+    ))
+  }
+
+  # Auto-detect or validate time column
+  if (is.null(time_col)) {
+    time_candidates <- common_cols[common_cols %in% c("time", "Time", "timepoint")]
+    if (length(time_candidates) == 0) {
+      cli::cli_abort(c(
+        "Cannot auto-detect time column.",
+        "i" = "No common column matching 'time', 'Time', or 'timepoint' found.",
+        "i" = "Use {.arg time_col} to specify the time column explicitly."
+      ))
+    }
+    time_col <- time_candidates[1]
+  } else if (!time_col %in% common_cols) {
+    cli::cli_abort(c(
+      "Time column {.val {time_col}} not found in both inputs.",
+      "i" = "Common columns: {.val {common_cols}}"
+    ))
+  }
 
   # Join substrate and exogenous data
   result <- substrate_ox |>

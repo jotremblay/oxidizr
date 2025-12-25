@@ -4,7 +4,13 @@
 \alias{calc_cho_partition}
 \title{Calculate CHO Source Partitioning}
 \usage{
-calc_cho_partition(substrate_ox, cho_exo, cho_pla = NULL)
+calc_cho_partition(
+  substrate_ox,
+  cho_exo,
+  cho_pla = NULL,
+  id_col = NULL,
+  time_col = NULL
+)
 }
 \arguments{
 \item{substrate_ox}{Substrate oxidation from calc_substrate_oxidation}
@@ -12,6 +18,10 @@ calc_cho_partition(substrate_ox, cho_exo, cho_pla = NULL)
 \item{cho_exo}{Exogenous CHO oxidation from calc_exogenous_cho}
 
 \item{cho_pla}{Plasma CHO oxidation from calc_plasma_cho (optional)}
+
+\item{id_col}{Name of the ID column (auto-detected if NULL)}
+
+\item{time_col}{Name of the time column (auto-detected if NULL)}
 }
 \value{
 A tibble with partitioned CHO oxidation rates
@@ -26,4 +36,9 @@ Partitioning calculations:
 \item CHOmus = CHOtot - CHOpla (muscle = total - plasma-derived)
 \item CHOliv = CHOpla - CHOexo (liver output = plasma - exogenous)
 }
+
+Column auto-detection looks for common columns between inputs matching
+patterns "id", "ID", "subject" for ID and "time", "Time", "timepoint" for time.
+If no match is found, an error is raised. Use explicit column parameters
+when using non-standard column names.
 }
