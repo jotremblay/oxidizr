@@ -132,6 +132,17 @@ automatically determined per variable.</p></dd>
 <li><p><code>meets_duration</code>: Logical indicating if period meets minimum duration</p></li>
 <li><p><code>method</code>: The detection method used</p></li>
 </ul></div>
+    <div class="section level2">
+    <h2 id="small-sample-considerations">Small Sample Considerations<a class="anchor" aria-label="anchor" href="#small-sample-considerations"></a></h2>
+
+
+<p>CV and variance-based methods require sufficient data points within each
+window. With fewer than 3 subjects or limited time points:</p><ul><li><p>Consider reducing <code>window_size_cv</code> or <code>window_size_var</code> if data
+is sparse</p></li>
+<li><p>CV calculations may be unstable with small samples</p></li>
+<li><p>Visual inspection of individual subject traces is recommended</p></li>
+<li><p>Default thresholds were validated on samples with n &gt;= 5 subjects</p></li>
+</ul></div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

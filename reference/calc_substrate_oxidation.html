@@ -51,7 +51,8 @@ using stoichiometric equations.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calc_substrate_oxidation</span><span class="op">(</span></span>
 <span>  <span class="va">calo</span>,</span>
 <span>  protein_ox <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  coefficients <span class="op">=</span> <span class="va">stoich_coefficients</span></span>
+<span>  coefficients <span class="op">=</span> <span class="va">stoich_coefficients</span>,</span>
+<span>  na_protein_action <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mean"</span>, <span class="st">"zero"</span>, <span class="st">"error"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -70,6 +71,14 @@ using stoichiometric equations.</p>
 <dt id="arg-coefficients">coefficients<a class="anchor" aria-label="anchor" href="#arg-coefficients"></a></dt>
 <dd><p>Stoichiometric coefficients (default: stoich_coefficients)</p></dd>
 
+
+<dt id="arg-na-protein-action">na_protein_action<a class="anchor" aria-label="anchor" href="#arg-na-protein-action"></a></dt>
+<dd><p>How to handle NA values in protein oxidation data.
+One of:</p><ul><li><p><code>"mean"</code> (default): Replace NA with group mean, then 0 if all NA</p></li>
+<li><p><code>"zero"</code>: Replace NA with 0 (assume negligible protein contribution)</p></li>
+<li><p><code>"error"</code>: Raise an error if any NA values are present</p></li>
+</ul></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -83,7 +92,23 @@ with specific coefficients parameterized as presented in Telmosse (2022):</p>
 <li><p>VCO2np = VCO2 - (protein_ox * 0.8443)</p></li>
 </ul><p>Substrate oxidation:</p><ul><li><p>CHO (g/min) = 4.618 * VCO2np - 3.279 * VO2np</p></li>
 <li><p>Fat (g/min) = -1.712 * VCO2np + 1.712 * VO2np</p></li>
+</ul><div class="section">
+<h3 id="na-handling-strategies">NA Handling Strategies<a class="anchor" aria-label="anchor" href="#na-handling-strategies"></a></h3>
+
+
+<p>When protein oxidation data contains NA values, the <code>na_protein_action</code>
+parameter controls behavior:</p><ul><li><p><strong>"mean"</strong>: Imputes missing values with the mean of available protein
+oxidation values. If all values are NA, uses 0. This preserves the
+group average contribution but may not be appropriate for studies
+with large inter-subject variability.</p></li>
+<li><p><strong>"zero"</strong>: Treats missing protein oxidation as zero contribution.
+Appropriate when protein contribution is expected to be negligible
+(&lt; 5% of total energy) or when conservative estimates are preferred.</p></li>
+<li><p><strong>"error"</strong>: Raises an error if any NA values are present. Recommended
+for automated pipelines where missing data should halt processing.</p></li>
 </ul></div>
+
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -94,6 +119,10 @@ with specific coefficients parameterized as presented in Telmosse (2022):</p>
 <span class="r-in"><span><span class="co"># With protein correction</span></span></span>
 <span class="r-in"><span><span class="va">protein</span> <span class="op">&lt;-</span> <span class="fu"><a href="calc_protein_oxidation.html">calc_protein_oxidation</a></span><span class="op">(</span><span class="va">urea_loss</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">ox</span> <span class="op">&lt;-</span> <span class="fu">calc_substrate_oxidation</span><span class="op">(</span><span class="va">calo_data</span>, protein_ox <span class="op">=</span> <span class="va">protein</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Strict mode for automated pipelines</span></span></span>
+<span class="r-in"><span><span class="va">ox</span> <span class="op">&lt;-</span> <span class="fu">calc_substrate_oxidation</span><span class="op">(</span><span class="va">calo_data</span>, protein_ox <span class="op">=</span> <span class="va">protein</span>,</span></span>
+<span class="r-in"><span>                               na_protein_action <span class="op">=</span> <span class="st">"error"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

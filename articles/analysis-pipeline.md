@@ -803,19 +803,19 @@ sessionInfo()
 #> [1] dplyr_1.1.4   oxidizr_0.1.0
 #> 
 #> loaded via a namespace (and not attached):
-#>  [1] gt_1.1.0           sass_0.4.10        utf8_1.2.6         generics_0.1.4    
-#>  [5] tidyr_1.3.1        xml2_1.5.1         stringi_1.8.7      digest_0.6.39     
+#>  [1] gt_1.2.0           sass_0.4.10        utf8_1.2.6         generics_0.1.4    
+#>  [5] tidyr_1.3.2        xml2_1.5.1         stringi_1.8.7      digest_0.6.39     
 #>  [9] magrittr_2.0.4     evaluate_1.0.5     grid_4.5.2         RColorBrewer_1.1-3
 #> [13] fastmap_1.2.0      jsonlite_2.0.0     slider_0.3.3       purrr_1.2.0       
 #> [17] scales_1.4.0       textshaping_1.0.4  jquerylib_0.1.4    cli_3.6.5         
-#> [21] rlang_1.1.6        litedown_0.8       commonmark_2.0.0   withr_3.0.2       
-#> [25] cachem_1.1.0       yaml_2.3.11        tools_4.5.2        ggplot2_4.0.1     
+#> [21] rlang_1.1.6        litedown_0.9       commonmark_2.0.0   withr_3.0.2       
+#> [25] cachem_1.1.0       yaml_2.3.12        tools_4.5.2        ggplot2_4.0.1     
 #> [29] forcats_1.0.1      vctrs_0.6.5        R6_2.6.1           lifecycle_1.0.4   
 #> [33] stringr_1.6.0      fs_1.6.6           htmlwidgets_1.6.4  ragg_1.5.0        
 #> [37] pkgconfig_2.0.3    desc_1.4.3         warp_0.2.2         pkgdown_2.2.0     
 #> [41] pillar_1.11.1      bslib_0.9.0        gtable_0.3.6       glue_1.8.0        
-#> [45] systemfonts_1.3.1  xfun_0.54          tibble_3.3.0       tidyselect_1.2.1  
-#> [49] knitr_1.50         farver_2.1.2       htmltools_0.5.9    patchwork_1.3.2   
+#> [45] systemfonts_1.3.1  xfun_0.55          tibble_3.3.0       tidyselect_1.2.1  
+#> [49] knitr_1.51         farver_2.1.2       htmltools_0.5.9    patchwork_1.3.2   
 #> [53] rmarkdown_2.30     labeling_0.4.3     compiler_4.5.2     S7_0.2.1          
 #> [57] markdown_2.0
 ```

@@ -101,6 +101,36 @@ oxidation during exercise using indirect calorimetry and stable isotope tracers.
 
 </dl></div>
     <div class="section level2">
+    <h2 id="edge-cases-and-data-quality">Edge Cases and Data Quality<a class="anchor" aria-label="anchor" href="#edge-cases-and-data-quality"></a></h2>
+
+
+
+<p><strong>Extreme RER Values:</strong></p><ul><li><p>RER &lt; 0.70: Physiologically impossible. Indicates measurement error,
+gas analyzer calibration issues, or data entry problems. These values
+are flagged as errors by <code><a href="validate_study.html">validate_study()</a></code>.</p></li>
+<li><p>RER 0.70-0.75: Unusually low for exercise. May indicate very high
+fat oxidation, prolonged fasting, or measurement drift. Review data
+for potential issues.</p></li>
+<li><p>RER 0.95-1.00: Approaching anaerobic threshold. Consider whether
+exercise intensity was appropriate for substrate oxidation assessment.</p></li>
+<li><p>RER &gt; 1.00: Indicates hyperventilation, non-steady state, or
+anaerobic metabolism. Data above 1.10 should be excluded for substrate
+oxidation calculations.</p></li>
+</ul><p><strong>Small Sample Sizes (&lt; 3 subjects):</strong></p><ul><li><p>Statistical analyses (standard deviation, coefficient of variation)
+may be unreliable with fewer than 3 subjects.</p></li>
+<li><p>Steady-state detection CV thresholds were validated on larger samples;
+use caution with n &lt; 3.</p></li>
+<li><p>Consider reporting individual subject data rather than group means
+for very small samples.</p></li>
+</ul><p><strong>Missing Data (NA values):</strong></p><ul><li><p><code><a href="calc_substrate_oxidation.html">calc_substrate_oxidation()</a></code> offers three NA handling strategies
+via the <code>na_protein_action</code> parameter: "mean" (impute with group mean),
+"zero" (assume negligible protein), or "error" (strict validation).</p></li>
+<li><p>Validation functions report missing data patterns to help identify
+systematic vs. random missingness.</p></li>
+<li><p>For isotope calculations, missing <code>rref</code> values can be provided as
+numeric constants or calculated from control protocol data.</p></li>
+</ul></div>
+    <div class="section level2">
     <h2 id="vignettes">Vignettes<a class="anchor" aria-label="anchor" href="#vignettes"></a></h2>
 
 

@@ -71,6 +71,50 @@ The typical analysis workflow consists of:
 
   Validation findings
 
+## Edge Cases and Data Quality
+
+**Extreme RER Values:**
+
+- RER \< 0.70: Physiologically impossible. Indicates measurement error,
+  gas analyzer calibration issues, or data entry problems. These values
+  are flagged as errors by
+  [`validate_study()`](https://jotremblay.github.io/oxidizr/reference/validate_study.md).
+
+- RER 0.70-0.75: Unusually low for exercise. May indicate very high fat
+  oxidation, prolonged fasting, or measurement drift. Review data for
+  potential issues.
+
+- RER 0.95-1.00: Approaching anaerobic threshold. Consider whether
+  exercise intensity was appropriate for substrate oxidation assessment.
+
+- RER \> 1.00: Indicates hyperventilation, non-steady state, or
+  anaerobic metabolism. Data above 1.10 should be excluded for substrate
+  oxidation calculations.
+
+**Small Sample Sizes (\< 3 subjects):**
+
+- Statistical analyses (standard deviation, coefficient of variation)
+  may be unreliable with fewer than 3 subjects.
+
+- Steady-state detection CV thresholds were validated on larger samples;
+  use caution with n \< 3.
+
+- Consider reporting individual subject data rather than group means for
+  very small samples.
+
+**Missing Data (NA values):**
+
+- [`calc_substrate_oxidation()`](https://jotremblay.github.io/oxidizr/reference/calc_substrate_oxidation.md)
+  offers three NA handling strategies via the `na_protein_action`
+  parameter: "mean" (impute with group mean), "zero" (assume negligible
+  protein), or "error" (strict validation).
+
+- Validation functions report missing data patterns to help identify
+  systematic vs. random missingness.
+
+- For isotope calculations, missing `rref` values can be provided as
+  numeric constants or calculated from control protocol data.
+
 ## Vignettes
 
 - [`vignette("getting-started")`](https://jotremblay.github.io/oxidizr/articles/getting-started.md):

@@ -98,6 +98,20 @@ A tibble with columns:
 
 - `method`: The detection method used
 
+## Small Sample Considerations
+
+CV and variance-based methods require sufficient data points within each
+window. With fewer than 3 subjects or limited time points:
+
+- Consider reducing `window_size_cv` or `window_size_var` if data is
+  sparse
+
+- CV calculations may be unstable with small samples
+
+- Visual inspection of individual subject traces is recommended
+
+- Default thresholds were validated on samples with n \>= 5 subjects
+
 ## Examples
 
 ``` r

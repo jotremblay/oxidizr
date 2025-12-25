@@ -9,7 +9,8 @@ using stoichiometric equations.
 calc_substrate_oxidation(
   calo,
   protein_ox = NULL,
-  coefficients = stoich_coefficients
+  coefficients = stoich_coefficients,
+  na_protein_action = c("mean", "zero", "error")
 )
 ```
 
@@ -26,6 +27,16 @@ calc_substrate_oxidation(
 - coefficients:
 
   Stoichiometric coefficients (default: stoich_coefficients)
+
+- na_protein_action:
+
+  How to handle NA values in protein oxidation data. One of:
+
+  - `"mean"` (default): Replace NA with group mean, then 0 if all NA
+
+  - `"zero"`: Replace NA with 0 (assume negligible protein contribution)
+
+  - `"error"`: Raise an error if any NA values are present
 
 ## Value
 
@@ -48,6 +59,23 @@ Substrate oxidation:
 
 - Fat (g/min) = -1.712 \* VCO2np + 1.712 \* VO2np
 
+### NA Handling Strategies
+
+When protein oxidation data contains NA values, the `na_protein_action`
+parameter controls behavior:
+
+- **"mean"**: Imputes missing values with the mean of available protein
+  oxidation values. If all values are NA, uses 0. This preserves the
+  group average contribution but may not be appropriate for studies with
+  large inter-subject variability.
+
+- **"zero"**: Treats missing protein oxidation as zero contribution.
+  Appropriate when protein contribution is expected to be negligible (\<
+  5% of total energy) or when conservative estimates are preferred.
+
+- **"error"**: Raises an error if any NA values are present. Recommended
+  for automated pipelines where missing data should halt processing.
+
 ## Examples
 
 ``` r
@@ -58,5 +86,9 @@ ox <- calc_substrate_oxidation(calo_data)
 # With protein correction
 protein <- calc_protein_oxidation(urea_loss)
 ox <- calc_substrate_oxidation(calo_data, protein_ox = protein)
+
+# Strict mode for automated pipelines
+ox <- calc_substrate_oxidation(calo_data, protein_ox = protein,
+                               na_protein_action = "error")
 } # }
 ```

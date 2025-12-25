@@ -45,7 +45,13 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calc_cho_partition</span><span class="op">(</span><span class="va">substrate_ox</span>, <span class="va">cho_exo</span>, cho_pla <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">calc_cho_partition</span><span class="op">(</span></span>
+<span>  <span class="va">substrate_ox</span>,</span>
+<span>  <span class="va">cho_exo</span>,</span>
+<span>  cho_pla <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  id_col <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  time_col <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -63,6 +69,14 @@
 <dt id="arg-cho-pla">cho_pla<a class="anchor" aria-label="anchor" href="#arg-cho-pla"></a></dt>
 <dd><p>Plasma CHO oxidation from calc_plasma_cho (optional)</p></dd>
 
+
+<dt id="arg-id-col">id_col<a class="anchor" aria-label="anchor" href="#arg-id-col"></a></dt>
+<dd><p>Name of the ID column (auto-detected if NULL)</p></dd>
+
+
+<dt id="arg-time-col">time_col<a class="anchor" aria-label="anchor" href="#arg-time-col"></a></dt>
+<dd><p>Name of the time column (auto-detected if NULL)</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -73,7 +87,11 @@
     <p>Partitioning calculations:</p><ul><li><p>CHOendo = CHOtot - CHOexo (endogenous = total - exogenous)</p></li>
 <li><p>CHOmus = CHOtot - CHOpla (muscle = total - plasma-derived)</p></li>
 <li><p>CHOliv = CHOpla - CHOexo (liver output = plasma - exogenous)</p></li>
-</ul></div>
+</ul><p>Column auto-detection looks for common columns between inputs matching
+patterns "id", "ID", "subject" for ID and "time", "Time", "timepoint" for time.
+If no match is found, an error is raised. Use explicit column parameters
+when using non-standard column names.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
