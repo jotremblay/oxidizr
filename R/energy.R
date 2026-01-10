@@ -34,44 +34,25 @@ calc_energy_yield <- function(oxidation,
 
   result <- oxidation
 
-  # Calculate energy from total CHO
-  if ("cho_total" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_total = .data$cho_total * cho_factor)
-  }
 
-  # Calculate energy from fat
-  if ("fat_total" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_fat = .data$fat_total * fat_factor)
-  }
+  # Define substrate-to-energy column mappings with their factors
 
-  # Calculate energy from protein
-  if ("protein_ox" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_protein = .data$protein_ox * protein_factor)
-  }
+  energy_mappings <- list(
+    list(from = "cho_total", to = "e_cho_total", factor = cho_factor),
+    list(from = "fat_total", to = "e_fat", factor = fat_factor),
+    list(from = "protein_ox", to = "e_protein", factor = protein_factor),
+    list(from = "cho_exo", to = "e_cho_exo", factor = cho_factor),
+    list(from = "cho_endo", to = "e_cho_endo", factor = cho_factor),
+    list(from = "cho_pla", to = "e_cho_pla", factor = cho_factor),
+    list(from = "cho_mus", to = "e_cho_mus", factor = cho_factor),
+    list(from = "cho_liv", to = "e_cho_liv", factor = cho_factor)
+  )
 
-  # Calculate energy from partitioned CHO sources
-  if ("cho_exo" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_exo = .data$cho_exo * cho_factor)
-  }
-  if ("cho_endo" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_endo = .data$cho_endo * cho_factor)
-  }
-  if ("cho_pla" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_pla = .data$cho_pla * cho_factor)
-  }
-  if ("cho_mus" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_mus = .data$cho_mus * cho_factor)
-  }
-  if ("cho_liv" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_liv = .data$cho_liv * cho_factor)
+  # Apply energy calculations for available columns
+  for (mapping in energy_mappings) {
+    if (mapping$from %in% names(result)) {
+      result[[mapping$to]] <- result[[mapping$from]] * mapping$factor
+    }
   }
 
   # Calculate total energy

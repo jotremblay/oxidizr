@@ -171,10 +171,7 @@ calc_substrate_oxidation <- function(calo,
                 "vo2_lmin", "vco2_lmin")
 
   result <- result |>
-    dplyr::select(dplyr::all_of(out_cols))
-
-  # Ensure non-negative oxidation rates
-  result <- result |>
+    dplyr::select(dplyr::all_of(out_cols)) |>
     dplyr::mutate(
       cho_total = pmax(.data$cho_total, 0),
       fat_total = pmax(.data$fat_total, 0)
