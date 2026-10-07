@@ -9,12 +9,12 @@ calc_sweat_loss(
   calo,
   environment,
   exercise_duration = 120,
-  baseline_water_ml = 2000,
+  baseline_water_ml = 0,
   ve_vo2_ratio = 25
 )
 }
 \arguments{
-\item{subjects}{A SubjectData object or data frame with mass/fluid data}
+\item{subjects}{A SubjectData object with mass and fluid data}
 
 \item{calo}{A CalorimetryData object for respiratory calculations}
 
@@ -22,18 +22,30 @@ calc_sweat_loss(
 
 \item{exercise_duration}{Exercise duration in minutes (default: 120)}
 
-\item{baseline_water_ml}{Baseline water intake in mL added to fluid balance
-calculation (default: 2000). Set to 0 if baseline water is already included
-in the water_ingested column of SubjectData.}
+\item{baseline_water_ml}{Water intake in mL that is not in the water column
+of SubjectData, added to the fluid balance (default: 0).}
 
 \item{ve_vo2_ratio}{Ventilation to VO2 ratio used to estimate minute
 ventilation when VE data is not available (default: 25). Typical range
 during moderate exercise is 20-30.}
 }
 \value{
-A tibble with sweat loss estimates (kg)
+A tibble with the ID column, the protocol column (if any) and
+\code{sweat_loss} (kg)
 }
 \description{
-Estimate sweat loss from mass balance considering fluid intake and
-respiratory gas/water losses.
+Estimate sweat loss from a body-mass balance: body mass change, fluid
+intake, urine output, and respiratory gas and water losses.
+}
+\details{
+sweat (kg) = initial mass + (water + baseline water + saline) / 1000
+\itemize{
+\item (expired CO2 mass - O2 mass taken up + respiratory water) / 1000
+\item urine / 1000 - final mass
+}
+
+Urine is the volume (mL) passed between the two weighings, read from the
+\code{urine} entry of \code{subjects@fluid_cols}. If that column is absent, urine is
+taken as 0 mL. When SubjectData has a protocol column, the balance is
+computed for each subject and protocol.
 }

@@ -17,7 +17,7 @@ Depends:
     R (>= 4.1.0)
 Imports:
     S7,
-    dplyr,
+    dplyr (>= 1.1.0),
     tidyr,
     purrr,
     ggplot2,

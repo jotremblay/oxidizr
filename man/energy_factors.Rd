@@ -7,15 +7,30 @@
 \format{
 A named list with three elements:
 \describe{
-\item{cho}{Carbohydrate energy factor (default: 3.72 kcal/g)}
-\item{fat}{Fat energy factor (default: 9.44 kcal/g)}
-\item{protein}{Protein energy factor (default: 4.70 kcal/g)}
+\item{cho}{Glucose: 3.72 kcal/g}
+\item{fat}{Triacylglycerol: 9.44 kcal/g}
+\item{protein}{Protein oxidized in the body: 4.70 kcal/g}
 }
 }
 \usage{
 energy_factors
 }
 \description{
-Default energy conversion factors (kcal/g) for substrate oxidation
+Energy released per gram of substrate oxidized (kcal/g). The values are the
+heats of combustion of IOM (2005), Table 5-1, which repeats Livesey & Elia
+(1988): glucose 15.56 kJ/g (Table 2), general fat 39.5 kJ/g and protein
+oxidized in the body 19.68 kJ/g (Table 6; N excreted as urea, ammonia and
+creatinine). Telmosse (2022, Table 1) uses the same values.
+}
+\references{
+Institute of Medicine (2005). \emph{Dietary Reference Intakes for Energy,
+Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino
+Acids}. National Academies Press. \doi{10.17226/10490}
+
+Livesey, G., & Elia, M. (1988). \emph{The American Journal of Clinical
+Nutrition}, \emph{47}(4), 608-628.
+}
+\seealso{
+\link{stoich_coefficients}, \code{vignette("stoichiometry")}
 }
 \keyword{datasets}

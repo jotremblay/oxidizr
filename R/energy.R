@@ -9,24 +9,26 @@ NULL
 #' Convert substrate oxidation rates (g/min) to energy yield (kcal/min).
 #'
 #' @param oxidation A data frame with oxidation rates (from calc_substrate_oxidation)
-#' @param cho_factor Energy per gram CHO (default: 3.72 kcal/g)
-#' @param fat_factor Energy per gram fat (default: 9.44 kcal/g)
-#' @param protein_factor Energy per gram protein (default: 4.70 kcal/g)
+#' @param cho_factor Energy per gram CHO (default: `energy_factors$cho`, 3.72 kcal/g)
+#' @param fat_factor Energy per gram fat (default: `energy_factors$fat`, 9.44 kcal/g)
+#' @param protein_factor Energy per gram protein (default:
+#'   `energy_factors$protein`, 4.70 kcal/g)
 #'
 #' @return A tibble with energy yield columns added
 #' @export
 #'
 #' @details
-#' Default energy factors:
-#' - Carbohydrate: 3.72 kcal/g (average of glucose, glycogen)
-#' - Fat: 9.44 kcal/g (average triglyceride)
-#' - Protein: 4.70 kcal/g (average amino acid mixture)
+#' Default energy factors ([energy_factors]; IOM, 2005, Table 5-1, which
+#' repeats Livesey & Elia, 1988):
+#' - Carbohydrate: 3.72 kcal/g (glucose, 15.56 kJ/g)
+#' - Fat: 9.44 kcal/g (general triacylglycerol, 39.5 kJ/g)
+#' - Protein: 4.70 kcal/g (protein oxidized in the body, 19.68 kJ/g)
 #'
 #' These values can be customized for specific substrates.
 calc_energy_yield <- function(oxidation,
-                              cho_factor = 3.72,
-                              fat_factor = 9.44,
-                              protein_factor = 4.70) {
+                              cho_factor = energy_factors$cho,
+                              fat_factor = energy_factors$fat,
+                              protein_factor = energy_factors$protein) {
 
   if (!is.data.frame(oxidation)) {
     cli::cli_abort("oxidation must be a data frame")
@@ -34,44 +36,25 @@ calc_energy_yield <- function(oxidation,
 
   result <- oxidation
 
-  # Calculate energy from total CHO
-  if ("cho_total" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_total = .data$cho_total * cho_factor)
-  }
 
-  # Calculate energy from fat
-  if ("fat_total" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_fat = .data$fat_total * fat_factor)
-  }
+  # Define substrate-to-energy column mappings with their factors
 
-  # Calculate energy from protein
-  if ("protein_ox" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_protein = .data$protein_ox * protein_factor)
-  }
+  energy_mappings <- list(
+    list(from = "cho_total", to = "e_cho_total", factor = cho_factor),
+    list(from = "fat_total", to = "e_fat", factor = fat_factor),
+    list(from = "protein_ox", to = "e_protein", factor = protein_factor),
+    list(from = "cho_exo", to = "e_cho_exo", factor = cho_factor),
+    list(from = "cho_endo", to = "e_cho_endo", factor = cho_factor),
+    list(from = "cho_pla", to = "e_cho_pla", factor = cho_factor),
+    list(from = "cho_mus", to = "e_cho_mus", factor = cho_factor),
+    list(from = "cho_liv", to = "e_cho_liv", factor = cho_factor)
+  )
 
-  # Calculate energy from partitioned CHO sources
-  if ("cho_exo" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_exo = .data$cho_exo * cho_factor)
-  }
-  if ("cho_endo" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_endo = .data$cho_endo * cho_factor)
-  }
-  if ("cho_pla" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_pla = .data$cho_pla * cho_factor)
-  }
-  if ("cho_mus" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_mus = .data$cho_mus * cho_factor)
-  }
-  if ("cho_liv" %in% names(result)) {
-    result <- result |>
-      dplyr::mutate(e_cho_liv = .data$cho_liv * cho_factor)
+  # Apply energy calculations for available columns
+  for (mapping in energy_mappings) {
+    if (mapping$from %in% names(result)) {
+      result[[mapping$to]] <- result[[mapping$from]] * mapping$factor
+    }
   }
 
   # Calculate total energy

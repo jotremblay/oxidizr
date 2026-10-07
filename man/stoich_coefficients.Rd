@@ -5,19 +5,58 @@
 \alias{stoich_coefficients}
 \title{Stoichiometric coefficients}
 \format{
-A named list with coefficients for CHO and fat calculations
+A named list:
+\describe{
+\item{cho_vo2, cho_vco2}{CHO (g/min) = cho_vo2 * VO2 + cho_vco2 * VCO2}
+\item{fat_vo2, fat_vco2}{Fat (g/min) = fat_vo2 * VO2 + fat_vco2 * VCO2}
+\item{protein_vo2, protein_vco2}{L O2 used and L CO2 produced per g protein}
+\item{protein_urea}{g protein oxidized per g urea excreted}
+\item{co2_cho_ratio}{L CO2 per g glucose, the k of the 13C equations}
+}
 }
 \usage{
 stoich_coefficients
 }
 \description{
-Coefficients for calculating substrate oxidation from gas exchange,
-as derived and presented in Telmosse (2022).
+Coefficients that convert gas exchange (L/min) into substrate oxidation
+(g/min). The package computes them when it is built, from balanced
+reactions, as Telmosse (2022, pp. 17-26) shows step by step.
+}
+\details{
+The gas volumes per gram come from \code{\link[=gas_yield]{gas_yield()}} at 22.414 L/mol
+(Livesey & Elia, 1988) for:
+\itemize{
+\item glucose, C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O (0.7465 L O2 and CO2 per g);
+\item the TAG-type of Telmosse (2022), C53.4H99.2O6 + 75.2 O2 ->
+53.4 CO2 + 49.6 H2O (2.0129 L O2/g, 1.4294 L CO2/g, RQ 0.710).
+}
+Solving VO2 = 0.7465 CHO + 2.0129 FAT and VCO2 = 0.7465 CHO + 1.4294 FAT
+gives CHO = 4.6211 VCO2 - 3.2815 VO2 and FAT = 1.7137 (VO2 - VCO2).
+Telmosse (2022) obtained 4.618, 3.279 and 1.712 with 22.4 L/mol, whole-number
+atomic weights and rounded volumes.
+
+Protein values are computed from the general values of Livesey & Elia
+(1988, Table 6): 19.68 kJ/g / 19.48 kJ/L O2 = 1.0103 L O2/g, times RQ 0.835
+= 0.8436 L CO2/g. The urea factor is 6.25 g protein per g N (Livesey & Elia,
+1988, p. 620) times the N fraction of urea (0.46646), that is 2.9154 g
+protein per g urea.
+
+See \code{vignette("stoichiometry")} for the reasons behind each choice.
 }
 \references{
-Telmosse, E. (2022). Contribution des glucides exogènes à la fourniture d’énergie lors d’un effort prolongé : analyse par régression multiple. Mémoire de maîtrise, Université de Montréal.
-Livesey, G., & Elia, M. (1988). Estimation of energy expenditure, net carbohydrate utilization, and net fat oxidation and synthesis by indirect calorimetry: evaluation of errors with special reference to the detailed composition of fuels. \emph{The American Journal of Clinical Nutrition}, \emph{47}(4), 608–628.
-Institute of Medicine, Food and Nutrition Board. (2005). \emph{Dietary Reference Intakes for Energy, Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino Acids}. National Academies Press.
-Péronnet, F., & Massicotte, D. (1991). Table of nonprotein respiratory quotient: an update. \emph{Canadian Journal of Sport Sciences = Journal Canadien Des Sciences Du Sport}, \emph{16}(1), 23–29.
+Telmosse, E. (2022). \emph{Contribution des glucides exogènes à la fourniture
+d’énergie lors d’un effort prolongé : analyse par régression multiple}.
+Mémoire de maîtrise, Université de Montréal.
+
+Livesey, G., & Elia, M. (1988). \emph{The American Journal of Clinical
+Nutrition}, \emph{47}(4), 608-628.
+
+Institute of Medicine (2005). National Academies Press. \doi{10.17226/10490}
+
+Péronnet, F., & Massicotte, D. (1991). \emph{Canadian Journal of Sport
+Sciences}, \emph{16}(1), 23-29.
+}
+\seealso{
+\code{\link[=gas_yield]{gas_yield()}}, \link{energy_factors}, \code{vignette("stoichiometry")}
 }
 \keyword{datasets}

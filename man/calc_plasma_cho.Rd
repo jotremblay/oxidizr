@@ -4,7 +4,12 @@
 \alias{calc_plasma_cho}
 \title{Calculate Plasma CHO Oxidation}
 \usage{
-calc_plasma_cho(calo, isotopes, rref, co2_cho_ratio = 0.747)
+calc_plasma_cho(
+  calo,
+  isotopes,
+  rref,
+  co2_cho_ratio = stoich_coefficients$co2_cho_ratio
+)
 }
 \arguments{
 \item{calo}{A CalorimetryData object}
@@ -13,7 +18,8 @@ calc_plasma_cho(calo, isotopes, rref, co2_cho_ratio = 0.747)
 
 \item{rref}{Reference enrichment}
 
-\item{co2_cho_ratio}{CO2/CHO ratio (default: 0.747)}
+\item{co2_cho_ratio}{L CO2 produced per g glucose oxidized (default:
+\code{stoich_coefficients$co2_cho_ratio}, 0.7465 L/g)}
 }
 \value{
 A tibble with plasma CHO oxidation rates
@@ -22,8 +28,8 @@ A tibble with plasma CHO oxidation rates
 Calculate plasma-derived carbohydrate oxidation using Rpla enrichment.
 }
 \details{
-CHOpla = VCO2 * ((Rexp - Rref) / (Rpla - Rref)) / 0.747
+CHOpla = VCO2 * ((Rexp - Rref) / (Rpla - Rref)) / k
 
 This represents total CHO oxidation from plasma glucose pool.
-The 0.747 L CO2 per gram CHO oxidized factor is based on Péronnet & Massicotte (1991) and presented in Telmosse (2022).
+k is the L CO2 produced per g glucose (see \code{\link[=calc_exogenous_cho]{calc_exogenous_cho()}}).
 }

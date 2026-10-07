@@ -14,7 +14,8 @@ calc_urea_loss(urea, sweat_loss, subjects = NULL)
 \item{subjects}{A SubjectData object (for urine volume)}
 }
 \value{
-A tibble with urea loss components
+A tibble with the key columns of \code{sweat_loss} (ID and, if any,
+protocol) and the urea loss components
 }
 \description{
 Calculate total urea nitrogen loss from sweat and urine.

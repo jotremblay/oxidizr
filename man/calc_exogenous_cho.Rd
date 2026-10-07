@@ -4,7 +4,12 @@
 \alias{calc_exogenous_cho}
 \title{Calculate Exogenous CHO Oxidation}
 \usage{
-calc_exogenous_cho(calo, isotopes, rref, co2_cho_ratio = 0.747)
+calc_exogenous_cho(
+  calo,
+  isotopes,
+  rref,
+  co2_cho_ratio = stoich_coefficients$co2_cho_ratio
+)
 }
 \arguments{
 \item{calo}{A CalorimetryData object}
@@ -13,7 +18,8 @@ calc_exogenous_cho(calo, isotopes, rref, co2_cho_ratio = 0.747)
 
 \item{rref}{Reference enrichment (from calc_rref or data frame with rref column)}
 
-\item{co2_cho_ratio}{CO2/CHO conversion ratio (default: 0.747)}
+\item{co2_cho_ratio}{L CO2 produced per g glucose oxidized (default:
+\code{stoich_coefficients$co2_cho_ratio}, 0.7465 L/g)}
 }
 \value{
 A tibble with exogenous CHO oxidation rates (g/min)
@@ -24,13 +30,20 @@ using 13C isotope enrichment data.
 }
 \details{
 The calculation uses the formula:
-CHOexo = VCO2 * ((Rexp - Rref) / (Rexo - Rref)) / 0.747
+CHOexo = VCO2 * ((Rexp - Rref) / (Rexo - Rref)) / k
 
 Where:
 \itemize{
 \item Rexp = 13C enrichment of expired CO2
-\item Rref = baseline 13C enrichment (from placebo)
-\item Rexo = 13C enrichment of ingested substrate
-\item 0.747 = L CO2 per gram CHO oxidized (Péronnet & Massicotte, 1991; Telmosse, 2022)
+\item Rref = background 13C enrichment of expired CO2, from the control trial
+\item Rexo = 13C enrichment of the ingested substrate
+\item k = L CO2 per g glucose oxidized, from the glucose reaction
+C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O: 6 x 22.414 / 180.16 = 0.7465
 }
+
+This is the Mosora equation, from a 13C mass balance on expired CO2
+(Telmosse, 2022, pp. 66-68). Telmosse uses k = 0.747 (6 x 22.4 / 180).
+Taking Rref from an exercise trial without exogenous glucose limits the
+overestimation caused by the rise of background enrichment during exercise
+(Telmosse, 2022, pp. 70-71). See \code{vignette("stoichiometry")}.
 }

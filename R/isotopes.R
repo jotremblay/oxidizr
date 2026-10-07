@@ -68,24 +68,32 @@ calc_rref <- function(isotopes, control_protocol, by_time = TRUE) {
 #' @param calo A CalorimetryData object
 #' @param isotopes An IsotopeData object
 #' @param rref Reference enrichment (from calc_rref or data frame with rref column)
-#' @param co2_cho_ratio CO2/CHO conversion ratio (default: 0.747)
+#' @param co2_cho_ratio L CO2 produced per g glucose oxidized (default:
+#'   `stoich_coefficients$co2_cho_ratio`, 0.7465 L/g)
 #'
 #' @return A tibble with exogenous CHO oxidation rates (g/min)
 #' @export
 #'
 #' @details
 #' The calculation uses the formula:
-#' CHOexo = VCO2 * ((Rexp - Rref) / (Rexo - Rref)) / 0.747
+#' CHOexo = VCO2 * ((Rexp - Rref) / (Rexo - Rref)) / k
 #'
 #' Where:
 #' - Rexp = 13C enrichment of expired CO2
-#' - Rref = baseline 13C enrichment (from placebo)
-#' - Rexo = 13C enrichment of ingested substrate
-#' - 0.747 = L CO2 per gram CHO oxidized (Péronnet & Massicotte, 1991; Telmosse, 2022)
+#' - Rref = background 13C enrichment of expired CO2, from the control trial
+#' - Rexo = 13C enrichment of the ingested substrate
+#' - k = L CO2 per g glucose oxidized, from the glucose reaction
+#'   C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O: 6 x 22.414 / 180.16 = 0.7465
+#'
+#' This is the Mosora equation, from a 13C mass balance on expired CO2
+#' (Telmosse, 2022, pp. 66-68). Telmosse uses k = 0.747 (6 x 22.4 / 180).
+#' Taking Rref from an exercise trial without exogenous glucose limits the
+#' overestimation caused by the rise of background enrichment during exercise
+#' (Telmosse, 2022, pp. 70-71). See `vignette("stoichiometry")`.
 calc_exogenous_cho <- function(calo,
                                isotopes,
                                rref,
-                               co2_cho_ratio = 0.747) {
+                               co2_cho_ratio = stoich_coefficients$co2_cho_ratio) {
 
   if (!S7_inherits(calo, CalorimetryData)) {
     cli::cli_abort("calo must be a CalorimetryData object")
@@ -262,20 +270,21 @@ calc_fexo <- function(isotopes, rref) {
 #' @param calo A CalorimetryData object
 #' @param isotopes An IsotopeData object (must include rpla)
 #' @param rref Reference enrichment
-#' @param co2_cho_ratio CO2/CHO ratio (default: 0.747)
+#' @param co2_cho_ratio L CO2 produced per g glucose oxidized (default:
+#'   `stoich_coefficients$co2_cho_ratio`, 0.7465 L/g)
 #'
 #' @return A tibble with plasma CHO oxidation rates
 #' @export
 #'
 #' @details
-#' CHOpla = VCO2 * ((Rexp - Rref) / (Rpla - Rref)) / 0.747
+#' CHOpla = VCO2 * ((Rexp - Rref) / (Rpla - Rref)) / k
 #'
 #' This represents total CHO oxidation from plasma glucose pool.
-#' The 0.747 L CO2 per gram CHO oxidized factor is based on Péronnet & Massicotte (1991) and presented in Telmosse (2022).
+#' k is the L CO2 produced per g glucose (see [calc_exogenous_cho()]).
 calc_plasma_cho <- function(calo,
                             isotopes,
                             rref,
-                            co2_cho_ratio = 0.747) {
+                            co2_cho_ratio = stoich_coefficients$co2_cho_ratio) {
 
   if (!S7_inherits(calo, CalorimetryData)) {
     cli::cli_abort("calo must be a CalorimetryData object")
