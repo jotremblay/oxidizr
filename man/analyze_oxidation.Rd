@@ -12,7 +12,8 @@ analyze_oxidation(
   control_protocol = NULL,
   validate = TRUE,
   strict = FALSE,
-  validation_thresholds = NULL
+  validation_thresholds = NULL,
+  exercise_duration = 120
 )
 }
 \arguments{
@@ -33,6 +34,9 @@ If FALSE (default), warnings are issued but analysis continues.
 If TRUE, analysis stops if validation errors are found.}
 
 \item{validation_thresholds}{Optional custom thresholds list (see calorimetry_thresholds)}
+
+\item{exercise_duration}{Exercise duration in minutes, used for the sweat
+loss and the protein oxidation rate (default: 120)}
 }
 \value{
 An OxidationResults S7 object

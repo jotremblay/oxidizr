@@ -22,6 +22,8 @@ navbar:
           href: articles/analysis-pipeline.html
         - text: Data Validation & Quality
           href: articles/data-quality.html
+        - text: Stoichiometry of Substrate Oxidation
+          href: articles/stoichiometry.html
 
 reference:
   - title: "Data Classes"
@@ -76,6 +78,7 @@ reference:
       - calc_fexo
       - calc_rref
       - stoich_coefficients
+      - gas_yield
 
   - title: "Protein Calculations"
     desc: "Functions for protein oxidation from urea"
@@ -193,3 +196,4 @@ articles:
     contents:
       - analysis-pipeline
       - data-quality
+      - stoichiometry

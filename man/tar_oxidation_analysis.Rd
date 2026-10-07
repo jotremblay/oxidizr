@@ -4,12 +4,19 @@
 \alias{tar_oxidation_analysis}
 \title{Calculate Substrate Oxidation and Energy Contributions}
 \usage{
-tar_oxidation_analysis(cleaned_data, exercise_duration = 120)
+tar_oxidation_analysis(
+  cleaned_data,
+  exercise_duration = 120,
+  baseline_water_ml = 2000
+)
 }
 \arguments{
 \item{cleaned_data}{Output from \code{tar_import_data()}}
 
 \item{exercise_duration}{Duration of exercise in minutes (default: 120)}
+
+\item{baseline_water_ml}{Water intake (mL) not recorded in \code{water_ingested},
+added to the fluid balance (default: 2000, the study protocol)}
 }
 \value{
 A list containing:

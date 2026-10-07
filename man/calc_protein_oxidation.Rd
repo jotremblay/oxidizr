@@ -7,8 +7,9 @@
 calc_protein_oxidation(
   urea_loss,
   exercise_duration = 120,
-  conversion_factor = 2.915,
-  id_col = "id"
+  conversion_factor = stoich_coefficients$protein_urea,
+  id_col = "id",
+  protocol_col = NULL
 )
 }
 \arguments{
@@ -16,27 +17,27 @@ calc_protein_oxidation(
 
 \item{exercise_duration}{Exercise duration in minutes (default: 120)}
 
-\item{conversion_factor}{Protein/urea conversion factor (default: 2.915)}
+\item{conversion_factor}{Grams of protein oxidized per gram of urea excreted
+(default: \code{stoich_coefficients$protein_urea}, 2.9154)}
 
 \item{id_col}{Name of the ID column}
+
+\item{protocol_col}{Name of the protocol column to keep in the output
+(optional). Keep it when protein oxidation differs between protocols.}
 }
 \value{
 A tibble with protein oxidation rates (g/min)
 }
 \description{
-Estimate protein oxidation rate from total urea nitrogen loss.
-Uses the conversion factor of 2.915 (grams protein per gram urea).
+Estimate protein oxidation rate from total urea loss.
 }
 \details{
-The conversion factor of 2.915 is derived from the work of Telmosse (2022),
-which states that 1 gram of urea excreted is equivalent to 0.343 grams of protein oxidized.
-This value is based on the protein formula (\code{C89H148.5O32N23.5}) described in
-Institute of Medicine (2005).
-\itemize{
-\item Nitrogen content of proteins (~16\%)
-\item Nitrogen content of urea (46.6\%)
-\item Complete oxidation of amino acids
-}
+protein_ox = urea_mass * conversion_factor / exercise_duration
 
-protein_ox = urea_mass * 2.915 / exercise_duration
+The default factor assumes that protein contains 16\% N, that is 6.25 g
+protein per g N (Livesey & Elia, 1988, p. 620), and that all of this N
+leaves as urea, which is 46.646\% N: 6.25 x 0.46646 = 2.9154 g protein per g
+urea. Telmosse (2022, p. 22) obtains 2.915 from the protein-type
+C89H148.5O32N23.5: the oxidation of 2057.5 g of protein gives 705 g of urea,
+that is 0.343 g of urea per g of protein (1 / 0.343 = 2.915).
 }

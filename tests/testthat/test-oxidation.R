@@ -295,3 +295,39 @@ test_that("calc_cho_partition ensures non-negative muscle and liver", {
   # Muscle should be clamped to 0
   expect_equal(result$cho_mus, 0)
 })
+
+test_that("calc_substrate_oxidation joins protein by subject and protocol", {
+  calo <- CalorimetryData(
+    data = data.frame(id = c(1, 1), time = c(30, 30), protocol = c("CHO", "PLA"),
+                      vo2 = 2.5, vco2 = 2.3),
+    protocol_col = "protocol"
+  )
+  prot <- data.frame(id = c(1, 1), protocol = c("CHO", "PLA"), protein_ox = c(0.05, 0.10))
+
+  ox <- calc_substrate_oxidation(calo, protein_ox = prot)
+
+  expect_equal(nrow(ox), 2)
+  expect_equal(ox$protein_ox, c(0.05, 0.10))
+})
+
+test_that("calc_substrate_oxidation stops when a protein key repeats", {
+  calo <- CalorimetryData(data = data.frame(id = 1, time = 30, vo2 = 2.5, vco2 = 2.3))
+  prot <- data.frame(id = c(1, 1), protein_ox = c(0.05, 0.10))
+
+  expect_error(calc_substrate_oxidation(calo, protein_ox = prot))
+})
+
+test_that("calc_substrate_oxidation keeps the protocol factor", {
+  calo <- CalorimetryData(
+    data = data.frame(id = c(1, 1), time = c(30, 30),
+                      protocol = factor(c("PLA", "CHO"), levels = c("PLA", "CHO")),
+                      vo2 = 2.5, vco2 = 2.3),
+    protocol_col = "protocol"
+  )
+  prot <- data.frame(id = c(1, 1), protocol = c("CHO", "PLA"), protein_ox = c(0.05, 0.10))
+
+  ox <- calc_substrate_oxidation(calo, protein_ox = prot)
+
+  expect_equal(levels(ox$protocol), c("PLA", "CHO"))
+  expect_equal(ox$protein_ox, c(0.10, 0.05))
+})

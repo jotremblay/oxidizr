@@ -171,24 +171,24 @@ plot_cho_partition(results, by = "protocol")
 
 ### Stoichiometric Equations
 
-The package uses stoichiometric equations for carbohydrate and fat oxidation. These are based on general principles (Livesey & Elia, 1988) with specific coefficients parameterized as presented in Telmosse (2022), derived from Institute of Medicine (2005) data.
+The coefficients come from the balanced oxidation reactions of glucose and of a representative triacylglycerol (TAG-type C53.4H99.2O6), following Telmosse (2022), with a molar volume of 22.414 L/mol (Livesey & Elia, 1988). See `vignette("stoichiometry")` for the derivation and the reasons for each choice.
 
 **Carbohydrate oxidation:**
-$$CHO\ (g/min) = 4.618 \times VCO_2 - 3.279 \times VO_2$$
+$$CHO\ (g/min) = 4.6211 \times VCO_2 - 3.2815 \times VO_2$$
 
 **Fat oxidation:**
-$$Fat\ (g/min) = -1.712 \times VCO_2 + 1.712 \times VO_2$$
+$$Fat\ (g/min) = 1.7137 \times VO_2 - 1.7137 \times VCO_2$$
 
 ### Exogenous CHO from Isotopes
 
-When using 13C tracers, the formula for exogenous carbohydrate oxidation utilizes a CO2/CHO conversion ratio of 0.747 L CO2 per gram CHO oxidized (Péronnet & Massicotte, 1991; Telmosse, 2022).
+The exogenous CHO equation divides by the CO2 produced per gram of glucose, 0.7465 L/g, from the same glucose reaction.
 
-$$CHO_{exo} = \frac{VCO_2 \times (R_{exp} - R_{ref})}{(R_{exo} - R_{ref}) \times 0.747}$$
+$$CHO_{exo} = \frac{VCO_2 \times (R_{exp} - R_{ref})}{(R_{exo} - R_{ref}) \times 0.7465}$$
 
 ### Energy Factors
 
-Default energy conversion factors (kcal/g) are based on Institute of Medicine (2005):
-- Carbohydrate: 3.72
+Default energy conversion factors (kcal/g) are the heats of combustion of Institute of Medicine (2005, Table 5-1), which repeat Livesey & Elia (1988):
+- Carbohydrate (glucose): 3.72
 - Fat: 9.44
 - Protein: 4.70
 

@@ -9,24 +9,26 @@ NULL
 #' Convert substrate oxidation rates (g/min) to energy yield (kcal/min).
 #'
 #' @param oxidation A data frame with oxidation rates (from calc_substrate_oxidation)
-#' @param cho_factor Energy per gram CHO (default: 3.72 kcal/g)
-#' @param fat_factor Energy per gram fat (default: 9.44 kcal/g)
-#' @param protein_factor Energy per gram protein (default: 4.70 kcal/g)
+#' @param cho_factor Energy per gram CHO (default: `energy_factors$cho`, 3.72 kcal/g)
+#' @param fat_factor Energy per gram fat (default: `energy_factors$fat`, 9.44 kcal/g)
+#' @param protein_factor Energy per gram protein (default:
+#'   `energy_factors$protein`, 4.70 kcal/g)
 #'
 #' @return A tibble with energy yield columns added
 #' @export
 #'
 #' @details
-#' Default energy factors:
-#' - Carbohydrate: 3.72 kcal/g (average of glucose, glycogen)
-#' - Fat: 9.44 kcal/g (average triglyceride)
-#' - Protein: 4.70 kcal/g (average amino acid mixture)
+#' Default energy factors ([energy_factors]; IOM, 2005, Table 5-1, which
+#' repeats Livesey & Elia, 1988):
+#' - Carbohydrate: 3.72 kcal/g (glucose, 15.56 kJ/g)
+#' - Fat: 9.44 kcal/g (general triacylglycerol, 39.5 kJ/g)
+#' - Protein: 4.70 kcal/g (protein oxidized in the body, 19.68 kJ/g)
 #'
 #' These values can be customized for specific substrates.
 calc_energy_yield <- function(oxidation,
-                              cho_factor = 3.72,
-                              fat_factor = 9.44,
-                              protein_factor = 4.70) {
+                              cho_factor = energy_factors$cho,
+                              fat_factor = energy_factors$fat,
+                              protein_factor = energy_factors$protein) {
 
   if (!is.data.frame(oxidation)) {
     cli::cli_abort("oxidation must be a data frame")

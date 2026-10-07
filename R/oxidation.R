@@ -22,16 +22,21 @@ NULL
 #' @export
 #'
 #' @details
-#' Uses equations commonly attributed to Jequier et al. and Frayn,
-#' with specific coefficients parameterized as presented in Telmosse (2022):
+#' The coefficients come from [stoich_coefficients], which solves the
+#' balanced oxidation reactions of glucose and a triacylglycerol (Telmosse,
+#' 2022; see `vignette("stoichiometry")`). With the default coefficients:
 #'
-#' Non-protein calculations:
-#' - VO2np = VO2 - (protein_ox * 1.0075)
-#' - VCO2np = VCO2 - (protein_ox * 0.8443)
+#' Non-protein gas exchange:
+#' - VO2np = VO2 - protein_ox * 1.0103
+#' - VCO2np = VCO2 - protein_ox * 0.8436
 #'
 #' Substrate oxidation:
-#' - CHO (g/min) = 4.618 * VCO2np - 3.279 * VO2np
-#' - Fat (g/min) = -1.712 * VCO2np + 1.712 * VO2np
+#' - CHO (g/min) = 4.6211 * VCO2np - 3.2815 * VO2np
+#' - Fat (g/min) = 1.7137 * VO2np - 1.7137 * VCO2np
+#'
+#' If `protein_ox` is a data frame, it is joined by the ID column, and also by
+#' the protocol column when both tables have it. Each calorimetry row must
+#' match at most one protein row.
 #'
 #' ## NA Handling Strategies
 #'
@@ -97,12 +102,16 @@ calc_substrate_oxidation <- function(calo,
       if (!"protein_ox" %in% names(protein_ox)) {
         cli::cli_abort("protein_ox must contain 'protein_ox' column")
       }
-      # Join protein data
+      # Join protein data on ID, plus protocol when both tables have it
+      by <- c(id_col, intersect(protocol_col, names(protein_ox)))
       result <- result |>
         dplyr::left_join(
-          protein_ox |> dplyr::select(dplyr::all_of(c(id_col, "protein_ox"))),
-          by = id_col
+          protein_ox |> dplyr::select(dplyr::all_of(c(by, "protein_ox"))),
+          by = by,
+          relationship = "many-to-one"
         )
+      # Keep the calorimetry protocol column (a join can change its type)
+      if (length(by) > 1) result[[protocol_col]] <- calo_df[[protocol_col]]
     } else if (is.numeric(protein_ox)) {
       result <- result |>
         dplyr::mutate(protein_ox = protein_ox)
@@ -342,6 +351,8 @@ oxidation_study <- function(calorimetry,
 #'   If FALSE (default), warnings are issued but analysis continues.
 #'   If TRUE, analysis stops if validation errors are found.
 #' @param validation_thresholds Optional custom thresholds list (see calorimetry_thresholds)
+#' @param exercise_duration Exercise duration in minutes, used for the sweat
+#'   loss and the protein oxidation rate (default: 120)
 #'
 #' @return An OxidationResults S7 object
 #' @export
@@ -368,7 +379,8 @@ analyze_oxidation <- function(study,
                               control_protocol = NULL,
                               validate = TRUE,
                               strict = FALSE,
-                              validation_thresholds = NULL) {
+                              validation_thresholds = NULL,
+                              exercise_duration = 120) {
 
   if (!S7_inherits(study, OxidationStudy)) {
     cli::cli_abort("study must be an OxidationStudy object")
@@ -428,19 +440,40 @@ analyze_oxidation <- function(study,
   if (!is.null(study@urea) && !is.null(study@environment) && !is.null(study@subjects)) {
     cli::cli_alert_info("Calculating protein oxidation from urea")
 
+    # When the urine volume is only in the urea data, use it in the sweat
+    # mass balance too, so that the urine is not counted as sweat
+    subjects <- study@subjects
+    urine_col <- subjects@fluid_cols$urine
+    urea <- study@urea
+    if (!is.null(urine_col) && !urine_col %in% names(subjects@data) &&
+        urea@urine_vol_col %in% names(urea@data)) {
+      proto <- intersect(subjects@protocol_col, intersect(names(subjects@data), names(urea@data)))
+      urine <- urea@data[, c(urea@id_col, proto, urea@urine_vol_col), drop = FALSE]
+      names(urine) <- c(subjects@id_col, proto, urine_col)
+      subjects@data <- dplyr::left_join(subjects@data, urine,
+                                        by = c(subjects@id_col, proto),
+                                        relationship = "many-to-one")
+    }
+
     sweat_loss <- calc_sweat_loss(
-      subjects = study@subjects,
+      subjects = subjects,
       calo = calo,
-      environment = study@environment
+      environment = study@environment,
+      exercise_duration = exercise_duration
     )
 
     urea_loss <- calc_urea_loss(
       urea = study@urea,
       sweat_loss = sweat_loss,
-      subjects = study@subjects
+      subjects = subjects
     )
 
-    protein_ox <- calc_protein_oxidation(urea_loss, id_col = study@urea@id_col)
+    protein_ox <- calc_protein_oxidation(
+      urea_loss,
+      exercise_duration = exercise_duration,
+      id_col = study@urea@id_col,
+      protocol_col = study@subjects@protocol_col
+    )
   }
 
   # Calculate substrate oxidation
@@ -489,7 +522,8 @@ analyze_oxidation <- function(study,
     control_protocol = control_protocol,
     calc_energy = calc_energy,
     validate = validate,
-    strict = strict
+    strict = strict,
+    exercise_duration = exercise_duration
   )
 
   # Add validation result to settings if available
