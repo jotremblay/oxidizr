@@ -149,68 +149,186 @@ calc_total_energy <- function(vo2, vco2, method = c("weir", "brockway")) {
   ee
 }
 
+#' Summarize Oxidation Results
+#'
+#' Summarise oxidation, gas exchange and energy columns with the subject as
+#' the unit of analysis. Each subject's rows are first averaged within the
+#' `by` groups; the subject means are then summarised across subjects. This
+#' avoids pseudo-replication: `n` counts subjects, and the SD describes
+#' between-subject variation only.
+#'
+#' @param data A data frame, e.g. `results@oxidation_rates` or
+#'   `results@energy_contributions`.
+#' @param vars Numeric columns to summarise. `NULL` selects every column
+#'   present among `cho_total`, `fat_total`, `protein_ox`, `cho_exo`,
+#'   `cho_endo`, `cho_pla`, `cho_mus`, `cho_liv`, `rer`, `vo2_lmin`,
+#'   `vco2_lmin`, and every column starting with `e_` or `pct_`. Columns
+#'   ending in `_u` or `_u_sys` (uncertainties) are never summarised as
+#'   variables.
+#' @param by Grouping column(s), e.g. `"protocol"` or `c("time", "protocol")`.
+#' @param level Confidence level of the t-based interval (default 0.95).
+#' @param unit Column identifying the unit of analysis (default `"id"`, the
+#'   subject). If `NULL` or absent from `data`, each row is treated as a unit
+#'   and a message says so.
+#'
+#' @return A tibble with the `by` columns, `n` (number of units), and for each
+#'   variable `<var>_mean`, `<var>_sd`, `<var>_se` (SD / sqrt(k), with k the
+#'   number of non-missing units), `<var>_ci_low` and `<var>_ci_high`
+#'   (mean -/+ qt(1 - (1 - level) / 2, k - 1) * SE; `NA` when k < 2). When
+#'   `data` has a `<var>_u_sys` column (systematic standard uncertainty), the
+#'   result also has `<var>_u_sys`, its mean over units. Systematic error is
+#'   shared by all subjects, so it is not divided by sqrt(n).
+#' @export
+#'
+#' @examples
+#' ox <- data.frame(
+#'   id = c(1, 1, 2, 3),
+#'   cho_total = c(1.0, 1.2, 1.5, 1.8)
+#' )
+#' summarize_oxidation(ox)
+summarize_oxidation <- function(data,
+                                vars = NULL,
+                                by = NULL,
+                                level = 0.95,
+                                unit = "id") {
+
+  if (!is.data.frame(data)) {
+    cli::cli_abort("{.arg data} must be a data frame")
+  }
+  if (!is.numeric(level) || length(level) != 1 || level <= 0 || level >= 1) {
+    cli::cli_abort("{.arg level} must be a single number between 0 and 1")
+  }
+  missing_by <- setdiff(by, names(data))
+  if (length(missing_by) > 0) {
+    cli::cli_abort("Grouping columns not found: {missing_by}")
+  }
+
+  if (is.null(vars)) {
+    vars <- c(
+      "cho_total", "fat_total", "protein_ox", "cho_exo", "cho_endo",
+      "cho_pla", "cho_mus", "cho_liv", "rer", "vo2_lmin", "vco2_lmin",
+      grep("^(e|pct)_", names(data), value = TRUE)
+    )
+  }
+  vars <- intersect(vars, names(data))
+  vars <- vars[!grepl("_u(_sys)?$", vars)]
+  if (length(vars) == 0) {
+    cli::cli_abort("No columns to summarise")
+  }
+  u_sys <- intersect(paste0(vars, "_u_sys"), names(data))
+
+  if (!is.null(unit) && unit %in% names(data)) {
+    data <- data |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(c(by, unit)))) |>
+      dplyr::summarise(
+        dplyr::across(dplyr::all_of(c(vars, u_sys)), ~ mean(.x, na.rm = TRUE)),
+        .groups = "drop"
+      )
+  } else {
+    cli::cli_inform("No subject column found: each row is a unit of the summary.")
+  }
+
+  data |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(by))) |>
+    dplyr::summarise(
+      n = dplyr::n(),
+      dplyr::across(
+        dplyr::all_of(vars),
+        list(
+          mean = ~ mean(.x, na.rm = TRUE),
+          sd = ~ stats::sd(.x, na.rm = TRUE),
+          se = ~ stats::sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x))),
+          ci_low = ~ ci_bounds(.x, level)[1],
+          ci_high = ~ ci_bounds(.x, level)[2]
+        ),
+        .names = "{.col}_{.fn}"
+      ),
+      dplyr::across(dplyr::all_of(u_sys), ~ mean(.x, na.rm = TRUE)),
+      .groups = "drop"
+    )
+}
+
+#' t-based confidence interval of a mean
+#'
+#' @param x Numeric vector (missing values dropped).
+#' @param level Confidence level.
+#' @return `c(low, high)`, or two `NA` when fewer than two values remain.
+#' @noRd
+ci_bounds <- function(x, level = 0.95) {
+  x <- x[!is.na(x)]
+  k <- length(x)
+  if (k < 2) {
+    return(c(NA_real_, NA_real_))
+  }
+  mean(x) + c(-1, 1) * stats::qt(1 - (1 - level) / 2, df = k - 1) *
+    stats::sd(x) / sqrt(k)
+}
+
+#' Error-bar half-width from a summarize_oxidation() result
+#'
+#' @param summary Output of [summarize_oxidation()].
+#' @param var Variable name.
+#' @param error One of `"sd"`, `"se"` or `"ci"`.
+#' @return Numeric vector of half-widths, one per summary row.
+#' @noRd
+error_halfwidth <- function(summary, var, error = c("sd", "se", "ci")) {
+  error <- match.arg(error)
+  if (error == "ci") {
+    (summary[[paste0(var, "_ci_high")]] - summary[[paste0(var, "_ci_low")]]) / 2
+  } else {
+    summary[[paste0(var, "_", error)]]
+  }
+}
+
+#' Name of the statistic shown, e.g. "Mean (95% CI)"
+#' @noRd
+error_label <- function(error, level = 0.95) {
+  switch(error,
+    sd = "Mean ± SD",
+    se = "Mean ± SE",
+    ci = paste0("Mean (", level * 100, "% CI)")
+  )
+}
+
+#' Subject column to use as the summary unit
+#'
+#' @param results An OxidationResults object or a data frame.
+#' @param df The data frame that will be summarised.
+#' @return The study's calorimetry `id_col` when it is in `df`, otherwise
+#'   `"id"` when it is in `df`, otherwise `NULL` (rows are the unit).
+#' @noRd
+summary_unit <- function(results, df) {
+  cols <- "id"
+  if (S7_inherits(results, OxidationResults) && !is.null(results@study)) {
+    cols <- c(results@study@calorimetry@id_col, cols)
+  }
+  cols <- intersect(cols, names(df))
+  if (length(cols) > 0) cols[1] else NULL
+}
+
 #' Summarize Energy Contributions
 #'
-#' Calculate summary statistics for energy contributions by group.
+#' Summarise the percentage (`pct_*`) and energy (`e_*`) columns with the
+#' subject as the unit. A wrapper of [summarize_oxidation()].
 #'
 #' @param energy A data frame with energy and percentage columns
 #' @param by Grouping variable(s) (character vector)
+#' @inheritParams summarize_oxidation
 #'
-#' @return A tibble with summary statistics
+#' @return A tibble with `n` and, for each column, `<col>_mean`, `<col>_sd`,
+#'   `<col>_se`, `<col>_ci_low` and `<col>_ci_high`
 #' @export
-summarize_energy <- function(energy, by = NULL) {
+summarize_energy <- function(energy, by = NULL, level = 0.95, unit = "id") {
 
   if (!is.data.frame(energy)) {
     cli::cli_abort("energy must be a data frame")
   }
 
-  # Identify percentage columns
-  pct_cols <- names(energy)[grepl("^pct_", names(energy))]
-  energy_cols <- names(energy)[grepl("^e_", names(energy))]
-
-  summary_cols <- c(pct_cols, energy_cols)
-  available_cols <- intersect(summary_cols, names(energy))
-
-  if (is.null(by)) {
-    # Overall summary
-    result <- energy |>
-      dplyr::summarise(
-        dplyr::across(
-          dplyr::all_of(available_cols),
-          list(
-            mean = ~ mean(.x, na.rm = TRUE),
-            sd = ~ sd(.x, na.rm = TRUE),
-            se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
-          ),
-          .names = "{.col}_{.fn}"
-        ),
-        n = dplyr::n()
-      )
-  } else {
-    # Summary by group
-    missing_by <- setdiff(by, names(energy))
-    if (length(missing_by) > 0) {
-      cli::cli_abort("Grouping columns not found: {paste(missing_by, collapse = ', ')}")
-    }
-
-    result <- energy |>
-      dplyr::group_by(dplyr::across(dplyr::all_of(by))) |>
-      dplyr::summarise(
-        dplyr::across(
-          dplyr::all_of(available_cols),
-          list(
-            mean = ~ mean(.x, na.rm = TRUE),
-            sd = ~ sd(.x, na.rm = TRUE),
-            se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
-          ),
-          .names = "{.col}_{.fn}"
-        ),
-        n = dplyr::n(),
-        .groups = "drop"
-      )
-  }
-
-  tibble::as_tibble(result)
+  vars <- c(
+    grep("^pct_", names(energy), value = TRUE),
+    grep("^e_", names(energy), value = TRUE)
+  )
+  summarize_oxidation(energy, vars = vars, by = by, level = level, unit = unit)
 }
 
 #' Calculate Cumulative Energy
