@@ -54,22 +54,32 @@ has_energy <- !is.null(results@energy_contributions)
 
 ```{r methods, eval=params$include_methods}
 #| results: asis
-k <- oxidizr::stoich_coefficients
-e <- oxidizr::energy_factors
+# The constants this analysis used (older results: the package defaults)
+k <- if (length(results@constants)) results@constants else oxidizr::oxidation_constants()
+e <- if (!is.null(k$energy)) k$energy else oxidizr::energy_factors
+opts <- oxidizr:::constant_options
+chosen <- if (!is.null(k$choices)) {
+  vapply(names(k$choices), function(p) {
+    o <- opts[[p]][[k$choices[[p]]]]
+    paste0(o$label, " (", o$source, ")")
+  }, character(1))
+} else {
+  c(lipid = "TAG-type C53.4H99.2O6 (Telmosse, 2022)", molar_volume = "22.414 L/mol (Livesey & Elia, 1988)")
+}
 f4 <- function(x) formatC(x, format = "f", digits = 4)
 cat("
 ## Methods
 
 ### Indirect Calorimetry
 
-Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~). The coefficients solve the balanced oxidation reactions of glucose and a representative triacylglycerol (C~53.4~H~99.2~O~6~), following Telmosse (2022), with a molar volume of 22.414 L/mol (Livesey & Elia, 1988):
+Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~). The coefficients solve the balanced oxidation reactions of glucose and of the lipid ", chosen[["lipid"]], ", with a molar volume of ", chosen[["molar_volume"]], ", following the method of Telmosse (2022):
 
 - **CHO oxidation** (g/min) = ", f4(k$cho_vco2), " × VCO~2~ - ", f4(-k$cho_vo2), " × VO~2~
 - **Fat oxidation** (g/min) = ", f4(k$fat_vo2), " × VO~2~ - ", f4(-k$fat_vco2), " × VCO~2~
 
 ### Energy Contributions
 
-Energy yield was calculated using the heats of combustion of Institute of Medicine (2005, Table 5-1), which repeat Livesey & Elia (1988):
+Energy yield was calculated with these energy values per gram", if (!is.null(k$choices)) paste0(" (", chosen[["energy"]], ")") else "", ":
 
 - Carbohydrate: ", e$cho, " kcal/g
 - Fat: ", e$fat, " kcal/g

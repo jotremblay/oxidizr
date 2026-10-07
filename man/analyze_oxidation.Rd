@@ -13,7 +13,10 @@ analyze_oxidation(
   validate = TRUE,
   strict = FALSE,
   validation_thresholds = NULL,
-  exercise_duration = 120
+  exercise_duration = 120,
+  constants = oxidation_constants(),
+  uncertainty = oxidation_uncertainty(),
+  rref_by_subject = FALSE
 )
 }
 \arguments{
@@ -21,7 +24,9 @@ analyze_oxidation(
 
 \item{time_range}{Optional time range to filter (vector of 2)}
 
-\item{aggregate}{Logical, aggregate by time point (default: FALSE)}
+\item{aggregate}{Logical, aggregate by time point (default: FALSE). The
+aggregated data keep the SD and number of replicates, which give the
+data-based uncertainty of VO2 and VCO2.}
 
 \item{calc_energy}{Logical, calculate energy contributions (default: TRUE)}
 
@@ -37,9 +42,24 @@ If TRUE, analysis stops if validation errors are found.}
 
 \item{exercise_duration}{Exercise duration in minutes, used for the sweat
 loss and the protein oxidation rate (default: 120)}
+
+\item{constants}{The constants of the calculations, from
+\code{\link[=oxidation_constants]{oxidation_constants()}} (default: the oxidizr defaults).}
+
+\item{uncertainty}{The input uncertainties to propagate, from
+\code{\link[=oxidation_uncertainty]{oxidation_uncertainty()}}. The default propagates only what the data
+show (replicate SDs, control-group SD of Rref). Use NULL for no
+propagation.}
+
+\item{rref_by_subject}{Logical, take Rref from each subject's own control
+trial (crossover studies; see \code{\link[=calc_rref]{calc_rref()}}). Default: FALSE.}
 }
 \value{
-An OxidationResults S7 object
+An OxidationResults S7 object. When an uncertainty was propagated,
+\code{oxidation_rates} and \code{energy_contributions} have, for each variable,
+\verb{<var>_u} (standard uncertainty) and \verb{<var>_u_sys} (its systematic part),
+and the \code{uncertainty} slot holds every contribution (see
+\code{\link[=uncertainty_budget]{uncertainty_budget()}}).
 }
 \description{
 Main analysis function that performs complete oxidation analysis.
@@ -56,7 +76,11 @@ results <- analyze_oxidation(study, time_range = c(30, 120))
 # With strict validation
 results <- analyze_oxidation(study, validate = TRUE, strict = TRUE)
 
-# Skip validation
-results <- analyze_oxidation(study, validate = FALSE)
+# Other constants, and stated measurement uncertainties
+results <- analyze_oxidation(
+  study,
+  constants = oxidation_constants(molar_volume = "real_gas"),
+  uncertainty = oxidation_uncertainty(vo2 = 0.01, vco2 = 0.01, rexp = 0.1)
+)
 }
 }

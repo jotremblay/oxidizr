@@ -237,6 +237,11 @@ tbl_energy_contribution <- function(results,
 #' @noRd
 summary_gt <- function(df, vars, labels, by, error, level, unit, decimals) {
 
+  missing_by <- setdiff(by, names(df))
+  if (length(missing_by) > 0) {
+    cli::cli_inform("Column{?s} {.val {missing_by}} not found: summarising without grouping.")
+    by <- NULL
+  }
   summary_df <- summarize_oxidation(df, vars = vars, by = by,
                                     level = level, unit = unit)
 
@@ -268,7 +273,7 @@ summary_gt <- function(df, vars, labels, by, error, level, unit, decimals) {
     tbl <- gt::cols_label(tbl, !!mean_col := label)
     u_col <- paste0(var, "_u_sys")
     if (u_col %in% keep) {
-      tbl <- gt::cols_label(tbl, !!u_col := "± systematic")
+      tbl <- gt::cols_label(tbl, !!u_col := "\u00b1 systematic")
     }
   }
 

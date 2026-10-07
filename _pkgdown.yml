@@ -24,6 +24,8 @@ navbar:
           href: articles/data-quality.html
         - text: Stoichiometry of Substrate Oxidation
           href: articles/stoichiometry.html
+        - text: Uncertainty in Substrate Oxidation
+          href: articles/uncertainty.html
 
 reference:
   - title: "Data Classes"
@@ -67,6 +69,15 @@ reference:
       - summarize_steady_state
       - filter_steady_state
       - calc_steady_state_stats
+
+  - title: "Constants and Uncertainty"
+    desc: "Choose the constants, propagate measurement uncertainty, and summarise with SD, SE or CI"
+    contents:
+      - oxidation_constants
+      - oxidation_uncertainty
+      - uncertainty_budget
+      - compare_constants
+      - summarize_oxidation
 
   - title: "Oxidation Calculations"
     desc: "Functions for calculating substrate oxidation rates"
@@ -197,3 +208,4 @@ articles:
       - analysis-pipeline
       - data-quality
       - stoichiometry
+      - uncertainty

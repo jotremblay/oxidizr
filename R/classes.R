@@ -360,6 +360,13 @@ OxidationStudy <- S7::new_class(
 #' @param partition Data frame with CHO partitioning (exo/endo/mus/liv)
 #' @param study The original OxidationStudy object
 #' @param settings List of analysis settings used
+#' @param constants The [oxidation_constants()] set used by the analysis
+#' @param uncertainty Data frame with one row per observation, variable and
+#'   source of uncertainty (see [oxidation_uncertainty()]), or NULL when no
+#'   uncertainty was propagated. Columns: `row_id` (row of `oxidation_rates`),
+#'   `variable`, `source`, `kind` ("random" or "systematic"), `input_u`
+#'   (standard uncertainty of the input) and `contribution` (change in the
+#'   variable for one standard uncertainty of the input).
 #'
 #' @return An OxidationResults S7 object
 #' @usage NULL
@@ -383,6 +390,14 @@ OxidationResults <- S7::new_class(
     settings = S7::new_property(
       S7::class_list,
       default = list()
+    ),
+    constants = S7::new_property(
+      S7::class_list,
+      default = list()
+    ),
+    uncertainty = S7::new_property(
+      S7::new_union(S7::class_data.frame, NULL),
+      default = NULL
     )
   )
 )

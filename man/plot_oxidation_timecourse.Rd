@@ -10,8 +10,9 @@ plot_oxidation_timecourse(
   by = NULL,
   time_col = "time",
   show_error = TRUE,
-  error_type = c("sd", "se"),
-  dodge_width = 3
+  error_type = c("sd", "se", "ci"),
+  dodge_width = 3,
+  level = 0.95
 )
 }
 \arguments{
@@ -23,11 +24,15 @@ plot_oxidation_timecourse(
 
 \item{time_col}{Name of the time column}
 
-\item{show_error}{Show error bars (SD or SE)}
+\item{show_error}{Show error bars}
 
-\item{error_type}{Type of error bars: "sd" or "se"}
+\item{error_type}{Type of error bars: "sd", "se" or "ci" (t-based
+confidence interval). Means and errors are computed across subjects
+with \code{\link[=summarize_oxidation]{summarize_oxidation()}}.}
 
 \item{dodge_width}{Width for position_dodge (default: 3)}
+
+\item{level}{Confidence level when \code{error_type = "ci"} (default 0.95)}
 }
 \value{
 A ggplot2 object

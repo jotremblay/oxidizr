@@ -96,7 +96,10 @@ CHO (g/min) = 4.6211 * VCO2 - 3.2815 * VO2
 Fat (g/min) = 1.7137 * VO2 - 1.7137 * VCO2
 ```
 
-`gas_yield()` computes the gas volumes for any formula, and `vignette("stoichiometry")` gives the reasoning and sources for each choice.
+`gas_yield()` computes the gas volumes for any formula, and `vignette("stoichiometry")` gives the reasoning and sources for each choice. `oxidation_constants()` lets you choose another lipid, molar volume, protein factors or energy values, and `compare_constants()` shows how much the choice changes the results.
+
+### Uncertainty
+`analyze_oxidation()` propagates measurement uncertainty (`oxidation_uncertainty()`) and reports, for each rate, its standard uncertainty and its systematic part. `uncertainty_budget()` ranks the sources, and summaries report SD, SE or a t-based CI with the subject as the unit. See `vignette("uncertainty")`.
 
 ### Exogenous CHO from 13C
 The Mosora equation divides by k, the CO2 produced per gram of glucose, from the same glucose reaction (6 x 22.414 / 180.16 = 0.7465 L/g).

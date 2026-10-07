@@ -4,7 +4,15 @@
 \alias{tbl_oxidation_summary}
 \title{Oxidation Summary Table}
 \usage{
-tbl_oxidation_summary(results, by = NULL, vars = NULL, decimals = 2)
+tbl_oxidation_summary(
+  results,
+  by = NULL,
+  vars = NULL,
+  decimals = 2,
+  error = c("sd", "se", "ci"),
+  level = 0.95,
+  unit = NULL
+)
 }
 \arguments{
 \item{results}{An OxidationResults object}
@@ -14,10 +22,23 @@ tbl_oxidation_summary(results, by = NULL, vars = NULL, decimals = 2)
 \item{vars}{Variables to include (NULL = auto)}
 
 \item{decimals}{Number of decimal places}
+
+\item{error}{Statistic shown with the mean: \code{"sd"} and \code{"se"} give
+"mean +/- value"; \code{"ci"} gives "mean (low to high)", a t-based confidence
+interval. A source note names the statistic.}
+
+\item{level}{Confidence level when \code{error = "ci"} (default 0.95).}
+
+\item{unit}{Subject column used as the unit of analysis. \code{NULL} uses the
+study's ID column, or \code{"id"}; when neither is present, rows are the unit.}
 }
 \value{
-A gt table object
+A gt table object. When the data hold \verb{<var>_u_sys} columns
+(systematic standard uncertainty), each variable gets an extra
+"+/- systematic" column.
 }
 \description{
-Create a summary table of oxidation rates.
+Create a summary table of oxidation rates. Values are summarised with
+\code{\link[=summarize_oxidation]{summarize_oxidation()}}: each subject's rows are averaged first, so \code{n}
+counts subjects and the error describes between-subject variation.
 }

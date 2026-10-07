@@ -1,5 +1,46 @@
 # oxidizr (development version)
 
+## Constants, uncertainty and summaries
+
+* `oxidation_constants()` builds the constant set from documented options for
+  the lipid (TAG-type, dioleoyl-palmitoyl-glycerol, palmitoyl-stearoyl-oleoyl-
+  glycerol, mean fatty acid), the molar volume (22.414, 22.4, real gases), the
+  protein factors and the energy per gram. Each option names its source.
+  `analyze_oxidation(constants = )` passes the set to every step.
+* `analyze_oxidation()` propagates measurement uncertainty
+  (`oxidation_uncertainty()`): first order (GUM) by default, Monte Carlo as an
+  option. Results gain `<var>_u` and its systematic part `<var>_u_sys`, and the
+  new `uncertainty` slot holds each contribution. By default only what the data
+  show is propagated: replicate SDs with the VO2-VCO2 replicate correlation
+  (`aggregate = TRUE`), and the control-group SD of Rref (random only for
+  subjects who did the control trial; random plus a systematic group-mean part
+  for subjects who did not).
+* `uncertainty_budget()` ranks the sources of uncertainty of one variable;
+  `compare_constants()` shows the results under other constant sets.
+* `calc_rref(by_subject = TRUE)` and `analyze_oxidation(rref_by_subject = TRUE)`
+  take Rref from each subject's own control trial (crossover studies). A
+  subject with no own control value gets an NA exogenous CHO, with a warning.
+* `calc_rref()`'s `n` now counts non-missing values.
+* `summary()` of OxidationResults uses the subject as the unit, and includes
+  `protein_ox`.
+* The report template states the constants that the analysis used.
+* `aggregate_calorimetry()` keeps the SD and number of replicates.
+* `summarize_oxidation()` gives mean, SD, SE and t-based CI with the subject as
+  the unit. `summarize_energy()`, `tbl_oxidation_summary()`,
+  `tbl_energy_contribution()`, the time-course plots and `quick_summary()` use
+  it; the tables and plots take `error = "sd"`, `"se"` or `"ci"` and `level`.
+  **Results change:** the tables and `quick_summary()` used to pool every
+  subject x time row, so their n and SD were per row.
+* New vignette, `vignette("uncertainty")`.
+
+## Bug fixes (crossover designs)
+
+* `calc_exogenous_cho()`, `calc_plasma_cho()` and `calc_cho_partition()` join
+  the isotope data by subject, time and protocol. Before, with one subject in
+  several protocols, rows were duplicated across protocols.
+* The 13C steps now stop with a clear message when the calorimetry data have
+  several rows for one subject, protocol and time (use `aggregate = TRUE`).
+
 ## Changes to results
 
 * `stoich_coefficients` is now computed from balanced reactions when the

@@ -284,8 +284,8 @@ error_halfwidth <- function(summary, var, error = c("sd", "se", "ci")) {
 #' @noRd
 error_label <- function(error, level = 0.95) {
   switch(error,
-    sd = "Mean ± SD",
-    se = "Mean ± SE",
+    sd = "Mean \u00b1 SD",
+    se = "Mean \u00b1 SE",
     ci = paste0("Mean (", level * 100, "% CI)")
   )
 }

@@ -12,10 +12,17 @@ NULL
 #' @param isotopes An IsotopeData object
 #' @param control_protocol Name of the control/placebo protocol
 #' @param by_time Logical, calculate Rref at each time point (default: TRUE)
+#' @param by_subject Logical, calculate one Rref for each subject from their
+#'   own control trial (default: FALSE). Use it in crossover studies: it
+#'   removes the between-subject spread of the background enrichment from the
+#'   error of each subject. With FALSE, every subject gets the control-group
+#'   mean.
 #'
-#' @return A tibble with Rref values
+#' @return A tibble with Rref values: `rref`, `rref_sd` (SD over the control
+#'   observations of each group) and `n` (number of non-missing values), with the time column and, if
+#'   `by_subject`, the ID column.
 #' @export
-calc_rref <- function(isotopes, control_protocol, by_time = TRUE) {
+calc_rref <- function(isotopes, control_protocol, by_time = TRUE, by_subject = FALSE) {
 
   if (!S7_inherits(isotopes, IsotopeData)) {
     cli::cli_abort("isotopes must be an IsotopeData object")
@@ -38,24 +45,15 @@ calc_rref <- function(isotopes, control_protocol, by_time = TRUE) {
     cli::cli_abort("No data found for control protocol '{control_protocol}'")
   }
 
-  # Calculate Rref
-  if (by_time) {
-    rref <- control_data |>
-      dplyr::group_by(.data[[time_col]]) |>
-      dplyr::summarise(
-        rref = mean(.data[[rexp_col]], na.rm = TRUE),
-        rref_sd = sd(.data[[rexp_col]], na.rm = TRUE),
-        n = dplyr::n(),
-        .groups = "drop"
-      )
-  } else {
-    rref <- control_data |>
-      dplyr::summarise(
-        rref = mean(.data[[rexp_col]], na.rm = TRUE),
-        rref_sd = sd(.data[[rexp_col]], na.rm = TRUE),
-        n = dplyr::n()
-      )
-  }
+  # Calculate Rref for each group (subject and/or time, or all)
+  groups <- c(if (by_subject) isotopes@id_col, if (by_time) time_col)
+  rref <- control_data |>
+    dplyr::summarise(
+      rref = mean(.data[[rexp_col]], na.rm = TRUE),
+      rref_sd = sd(.data[[rexp_col]], na.rm = TRUE),
+      n = sum(!is.na(.data[[rexp_col]])),
+      .by = dplyr::all_of(groups)
+    )
 
   tibble::as_tibble(rref)
 }
@@ -122,36 +120,17 @@ calc_exogenous_cho <- function(calo,
   # Unit conversion
   unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
-  # Handle rref - can be a data frame or single value
-  if (is.data.frame(rref)) {
-    if ("rref" %in% names(rref)) {
-      if (iso_time_col %in% names(rref)) {
-        # Time-varying rref
-        rref_join <- rref
-      } else {
-        # Single rref value
-        rref_val <- rref$rref[1]
-        rref_join <- NULL
-      }
-    } else {
-      cli::cli_abort("rref data frame must contain 'rref' column")
-    }
-  } else if (is.numeric(rref)) {
-    rref_val <- rref
-    rref_join <- NULL
-  } else {
-    cli::cli_abort("rref must be a data frame or numeric value")
-  }
-
   # Start with calorimetry data
   result <- calo_df |>
     dplyr::mutate(vco2_lmin = .data[[vco2_col]] * unit_factor)
 
-  # Join Rexp
+  # Join Rexp on ID and time, plus protocol when both tables have it
+  keys <- iso_keys(calo, isotopes, rexp_df)
   result <- result |>
     dplyr::left_join(
-      rexp_df |> dplyr::select(dplyr::all_of(c(iso_id_col, iso_time_col, rexp_col))),
-      by = stats::setNames(c(iso_id_col, iso_time_col), c(id_col, time_col))
+      rexp_df |> dplyr::select(dplyr::all_of(c(keys, rexp_col))),
+      by = keys,
+      relationship = "many-to-one"
     )
 
   # Join Rexo (by protocol)
@@ -164,16 +143,7 @@ calc_exogenous_cho <- function(calo,
   }
 
   # Join or assign Rref
-  if (!is.null(rref_join)) {
-    result <- result |>
-      dplyr::left_join(
-        rref_join |> dplyr::select(dplyr::all_of(c(iso_time_col, "rref"))),
-        by = stats::setNames(iso_time_col, time_col)
-      )
-  } else {
-    result <- result |>
-      dplyr::mutate(rref = rref_val)
-  }
+  result <- join_rref(result, rref, iso_id_col, iso_time_col, id_col, time_col)
 
   # Calculate exogenous CHO oxidation
   result <- result |>
@@ -224,13 +194,6 @@ calc_fexo <- function(isotopes, rref) {
   rpla_col <- isotopes@rpla_col
   rexo_col <- isotopes@rexo_col
 
-  # Handle rref
-  if (is.data.frame(rref)) {
-    rref_val <- if (time_col %in% names(rref)) NULL else rref$rref[1]
-  } else {
-    rref_val <- rref
-  }
-
   result <- rpla_df
 
   # Join Rexo
@@ -243,16 +206,7 @@ calc_fexo <- function(isotopes, rref) {
   }
 
   # Add Rref
-  if (is.null(rref_val) && is.data.frame(rref)) {
-    result <- result |>
-      dplyr::left_join(
-        rref |> dplyr::select(dplyr::all_of(c(time_col, "rref"))),
-        by = time_col
-      )
-  } else {
-    result <- result |>
-      dplyr::mutate(rref = rref_val)
-  }
+  result <- join_rref(result, rref, isotopes@id_col, time_col)
 
   # Calculate Fexo
   result <- result |>
@@ -313,41 +267,29 @@ calc_plasma_cho <- function(calo,
 
   unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
-  # Handle rref
-  if (is.data.frame(rref)) {
-    rref_val <- if (iso_time_col %in% names(rref)) NULL else rref$rref[1]
-  } else {
-    rref_val <- rref
-  }
-
   result <- calo_df |>
     dplyr::mutate(vco2_lmin = .data[[vco2_col]] * unit_factor)
 
-  # Join Rexp
+  # Join Rexp on ID and time, plus protocol when both tables have it
+  keys <- iso_keys(calo, isotopes, rexp_df)
   result <- result |>
     dplyr::left_join(
-      rexp_df |> dplyr::select(dplyr::all_of(c(iso_id_col, iso_time_col, rexp_col))),
-      by = stats::setNames(c(iso_id_col, iso_time_col), c(id_col, time_col))
+      rexp_df |> dplyr::select(dplyr::all_of(c(keys, rexp_col))),
+      by = keys,
+      relationship = "many-to-one"
     )
 
-  # Join Rpla
+  # Join Rpla on ID and time, plus protocol when both tables have it
+  keys <- iso_keys(calo, isotopes, rpla_df)
   result <- result |>
     dplyr::left_join(
-      rpla_df |> dplyr::select(dplyr::all_of(c(iso_id_col, iso_time_col, rpla_col))),
-      by = stats::setNames(c(iso_id_col, iso_time_col), c(id_col, time_col))
+      rpla_df |> dplyr::select(dplyr::all_of(c(keys, rpla_col))),
+      by = keys,
+      relationship = "many-to-one"
     )
 
   # Add Rref
-  if (is.null(rref_val) && is.data.frame(rref)) {
-    result <- result |>
-      dplyr::left_join(
-        rref |> dplyr::select(dplyr::all_of(c(iso_time_col, "rref"))),
-        by = stats::setNames(iso_time_col, time_col)
-      )
-  } else {
-    result <- result |>
-      dplyr::mutate(rref = rref_val)
-  }
+  result <- join_rref(result, rref, iso_id_col, iso_time_col, id_col, time_col)
 
   # Calculate CHOpla
   result <- result |>
@@ -359,4 +301,36 @@ calc_plasma_cho <- function(calo,
     dplyr::select(dplyr::all_of(c(id_col, time_col, protocol_col)), cho_pla)
 
   tibble::as_tibble(result)
+}
+
+# Add an rref column to `data`. `rref` is a number, or a data frame with an
+# `rref` column and, as join keys, the isotope ID and/or time columns (from
+# calc_rref()). A data frame with neither key gives its first value to all rows.
+join_rref <- function(data, rref, iso_id_col, iso_time_col,
+                      id_col = iso_id_col, time_col = iso_time_col) {
+  if (is.numeric(rref)) {
+    return(dplyr::mutate(data, rref = rref))
+  }
+  if (!is.data.frame(rref) || !"rref" %in% names(rref)) {
+    cli::cli_abort("rref must be a number or a data frame with an {.field rref} column.")
+  }
+  keys <- intersect(c(iso_id_col, iso_time_col), names(rref))
+  if (length(keys) == 0) {
+    return(dplyr::mutate(data, rref = rref$rref[1]))
+  }
+  data_keys <- c(id_col, time_col)[match(keys, c(iso_id_col, iso_time_col))]
+  dplyr::left_join(data, rref[c(keys, "rref")],
+                   by = stats::setNames(keys, data_keys),
+                   relationship = "many-to-one")
+}
+
+# Join keys from calorimetry to isotope data (calo name = isotope name): ID
+# and time, plus protocol when both the calorimetry and `iso_df` have one.
+iso_keys <- function(calo, isotopes, iso_df) {
+  keys <- stats::setNames(c(isotopes@id_col, isotopes@time_col), c(calo@id_col, calo@time_col))
+  if (!is.null(calo@protocol_col) && !is.null(isotopes@protocol_col) &&
+      isotopes@protocol_col %in% names(iso_df)) {
+    keys <- c(keys, stats::setNames(isotopes@protocol_col, calo@protocol_col))
+  }
+  keys
 }

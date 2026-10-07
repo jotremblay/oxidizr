@@ -16,11 +16,12 @@ A named list with three elements:
 energy_factors
 }
 \description{
-Energy released per gram of substrate oxidized (kcal/g). The values are the
-heats of combustion of IOM (2005), Table 5-1, which repeats Livesey & Elia
-(1988): glucose 15.56 kJ/g (Table 2), general fat 39.5 kJ/g and protein
-oxidized in the body 19.68 kJ/g (Table 6; N excreted as urea, ammonia and
-creatinine). Telmosse (2022, Table 1) uses the same values.
+Energy released per gram of substrate oxidized (kcal/g), from the default
+\code{\link[=oxidation_constants]{oxidation_constants()}}. The values are the heats of combustion of IOM
+(2005), Table 5-1, which repeats Livesey & Elia (1988): glucose 15.56 kJ/g
+(Table 2), general fat 39.5 kJ/g and protein oxidized in the body 19.68
+kJ/g (Table 6; N excreted as urea, ammonia and creatinine). Telmosse (2022,
+Table 1) uses the same values.
 }
 \references{
 Institute of Medicine (2005). \emph{Dietary Reference Intakes for Energy,
@@ -31,6 +32,6 @@ Livesey, G., & Elia, M. (1988). \emph{The American Journal of Clinical
 Nutrition}, \emph{47}(4), 608-628.
 }
 \seealso{
-\link{stoich_coefficients}, \code{vignette("stoichiometry")}
+\code{\link[=oxidation_constants]{oxidation_constants()}}, \link{stoich_coefficients}, \code{vignette("stoichiometry")}
 }
 \keyword{datasets}

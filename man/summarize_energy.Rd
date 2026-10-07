@@ -4,16 +4,24 @@
 \alias{summarize_energy}
 \title{Summarize Energy Contributions}
 \usage{
-summarize_energy(energy, by = NULL)
+summarize_energy(energy, by = NULL, level = 0.95, unit = "id")
 }
 \arguments{
 \item{energy}{A data frame with energy and percentage columns}
 
 \item{by}{Grouping variable(s) (character vector)}
+
+\item{level}{Confidence level of the t-based interval (default 0.95).}
+
+\item{unit}{Column identifying the unit of analysis (default \code{"id"}, the
+subject). If \code{NULL} or absent from \code{data}, each row is treated as a unit
+and a message says so.}
 }
 \value{
-A tibble with summary statistics
+A tibble with \code{n} and, for each column, \verb{<col>_mean}, \verb{<col>_sd},
+\verb{<col>_se}, \verb{<col>_ci_low} and \verb{<col>_ci_high}
 }
 \description{
-Calculate summary statistics for energy contributions by group.
+Summarise the percentage (\verb{pct_*}) and energy (\verb{e_*}) columns with the
+subject as the unit. A wrapper of \code{\link[=summarize_oxidation]{summarize_oxidation()}}.
 }

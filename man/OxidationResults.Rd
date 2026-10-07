@@ -13,6 +13,15 @@
 \item{study}{The original OxidationStudy object}
 
 \item{settings}{List of analysis settings used}
+
+\item{constants}{The \code{\link[=oxidation_constants]{oxidation_constants()}} set used by the analysis}
+
+\item{uncertainty}{Data frame with one row per observation, variable and
+source of uncertainty (see \code{\link[=oxidation_uncertainty]{oxidation_uncertainty()}}), or NULL when no
+uncertainty was propagated. Columns: \code{row_id} (row of \code{oxidation_rates}),
+\code{variable}, \code{source}, \code{kind} ("random" or "systematic"), \code{input_u}
+(standard uncertainty of the input) and \code{contribution} (change in the
+variable for one standard uncertainty of the input).}
 }
 \value{
 An OxidationResults S7 object

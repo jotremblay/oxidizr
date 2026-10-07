@@ -278,6 +278,23 @@ Jeukendrup & Wallis, 2005; pp. 56-57). oxidizr sets negative oxidation rates
 to 0, so fat oxidation is 0 above an RER of 1. `validate_study()` warns above
 an RER of 1.05 and reports an error above 1.10.
 
+## Choosing other constants
+
+The defaults follow Telmosse (2022) with the molar volume of Livesey & Elia
+(1988). `oxidation_constants()` builds a set with other documented options for
+the lipid, the molar volume, the protein factors and the energy per gram, and
+prints the source of each choice. For example, the equations of Péronnet &
+Massicotte (1991), also used by Jeukendrup & Wallis (2005):
+
+```{r}
+pm <- oxidation_constants(lipid = "fatty_acid", molar_volume = "real_gas")
+pm
+```
+
+Give a set to `analyze_oxidation(constants = pm)`. `compare_constants()` runs
+the analysis with several sets, and `vignette("uncertainty")` shows how much
+each choice changes the results. See `?oxidation_constants` for every option.
+
 ## References
 
 Beckers, E. J., Halliday, D., & Wagenmakers, A. J. (1994). Glucose metabolism and radioactive labeling: what are the real dangers? *Medicine and Science in Sports and Exercise*, 26(11), 1316-1318.

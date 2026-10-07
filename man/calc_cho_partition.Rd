@@ -9,7 +9,8 @@ calc_cho_partition(
   cho_exo,
   cho_pla = NULL,
   id_col = NULL,
-  time_col = NULL
+  time_col = NULL,
+  protocol_col = "protocol"
 )
 }
 \arguments{
@@ -22,6 +23,10 @@ calc_cho_partition(
 \item{id_col}{Name of the ID column (auto-detected if NULL)}
 
 \item{time_col}{Name of the time column (auto-detected if NULL)}
+
+\item{protocol_col}{Name of the protocol column (default: "protocol").
+When all inputs have it, it is part of the join keys, so that each
+protocol of a crossover study keeps its own values.}
 }
 \value{
 A tibble with partitioned CHO oxidation rates

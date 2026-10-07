@@ -9,11 +9,13 @@ quick_summary(results, by = NULL)
 \arguments{
 \item{results}{An OxidationResults object or data frame}
 
-\item{by}{Optional grouping variable}
+\item{by}{Optional grouping variable (currently unused)}
 }
 \value{
 Invisible NULL (prints summary to console)
 }
 \description{
-Print a quick summary of key oxidation metrics.
+Print a quick summary of key oxidation metrics as mean +/- SD across
+subjects (each subject's rows are averaged first, see
+\code{\link[=summarize_oxidation]{summarize_oxidation()}}). Without a subject column, rows are the unit.
 }

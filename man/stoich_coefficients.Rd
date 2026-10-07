@@ -19,8 +19,9 @@ stoich_coefficients
 }
 \description{
 Coefficients that convert gas exchange (L/min) into substrate oxidation
-(g/min). The package computes them when it is built, from balanced
-reactions, as Telmosse (2022, pp. 17-26) shows step by step.
+(g/min), from the default \code{\link[=oxidation_constants]{oxidation_constants()}}. The package computes them
+when it is built, from balanced reactions, as Telmosse (2022, pp. 17-26)
+shows step by step. Use \code{\link[=oxidation_constants]{oxidation_constants()}} to choose other options.
 }
 \details{
 The gas volumes per gram come from \code{\link[=gas_yield]{gas_yield()}} at 22.414 L/mol
@@ -57,6 +58,7 @@ Péronnet, F., & Massicotte, D. (1991). \emph{Canadian Journal of Sport
 Sciences}, \emph{16}(1), 23-29.
 }
 \seealso{
-\code{\link[=gas_yield]{gas_yield()}}, \link{energy_factors}, \code{vignette("stoichiometry")}
+\code{\link[=oxidation_constants]{oxidation_constants()}}, \code{\link[=gas_yield]{gas_yield()}}, \link{energy_factors},
+\code{vignette("stoichiometry")}
 }
 \keyword{datasets}

@@ -177,39 +177,90 @@ utils::globalVariables(c(
 # -----------------------------------------------------------------------------
 # Stoichiometry
 # -----------------------------------------------------------------------------
-# Every gas-exchange and energy constant below comes from one table of
-# substrates. See ?stoich_coefficients and vignette("stoichiometry").
+# Every gas-exchange and energy constant comes from the options below, through
+# oxidation_constants(). See ?oxidation_constants and vignette("stoichiometry").
 
 # Atomic weights (g/mol): Péronnet & Massicotte (1991), Table 1; N from IUPAC.
 atomic_weight <- c(C = 12.011, H = 1.00794, O = 15.9994, N = 14.0067)
 
-substrates <- list(
-  # C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O
-  glucose = list(
-    formula = c(C = 6, H = 12, O = 6),
-    kcal_g = 3.72,
-    source = "IOM (2005), Table 5-1; Livesey & Elia (1988), Table 2: 15.56 kJ/g"
-  ),
-  # TAG-type C53.4H99.2O6 + 75.2 O2 -> 53.4 CO2 + 49.6 H2O (Telmosse, 2022)
-  lipid = list(
-    formula = c(C = 53.4, H = 99.2, O = 6),
-    kcal_g = 9.44,
-    source = "IOM (2005), Table 5-1; Livesey & Elia (1988), Table 6: 39.5 kJ/g"
-  ),
-  # General values for protein oxidized in the body, N excreted as urea,
-  # ammonia and creatinine (90:5:5): Livesey & Elia (1988), Table 6
-  protein = list(
-    kj_g = 19.68,    # energy density, kJ/g
-    kj_l_o2 = 19.48, # heat equivalent of O2, kJ/L
-    rq = 0.835,
-    n_ratio = 6.25,  # g protein per g N: Livesey & Elia (1988), p. 620
-    kcal_g = 4.70,
-    source = "IOM (2005), Table 5-1; Livesey & Elia (1988), Table 6: 19.68 kJ/g"
-  )
-)
-
 # Molar mass of urea, CH4N2O (g/mol)
 urea_molar_mass <- sum(atomic_weight * c(C = 1, H = 4, O = 1, N = 2))
+
+# The options of each part of a constant set, with their sources. The first
+# option of each part is the default.
+constant_options <- list(
+  lipid = list(
+    tag_type = list(
+      formula = c(C = 53.4, H = 99.2, O = 6),
+      label = "TAG-type C53.4H99.2O6",
+      source = "Telmosse (2022), p. 20; matches IOM (2005), Table 5-1"
+    ),
+    diop = list(
+      formula = c(C = 55, H = 102, O = 6),
+      label = "dioleoyl-palmitoyl-glycerol C55H102O6",
+      source = "Livesey & Elia (1988), Table 4"
+    ),
+    pos = list(
+      formula = c(C = 55, H = 104, O = 6),
+      label = "palmitoyl-stearoyl-oleoyl-glycerol C55H104O6",
+      source = "Frayn (1983); Ferrannini (1988)"
+    ),
+    fatty_acid = list(
+      formula = c(C = 17.2702, H = 32.7142, O = 2),
+      label = "mean fatty acid C17.2702H32.7142O2",
+      source = "P\u00e9ronnet & Massicotte (1991), Table 1"
+    )
+  ),
+  molar_volume = list(
+    livesey_elia = list(
+      value = c(O2 = 22.414, CO2 = 22.414),
+      label = "22.414 L/mol (ideal gas)",
+      source = "Livesey & Elia (1988), p. 609"
+    ),
+    ideal_22.4 = list(
+      value = c(O2 = 22.4, CO2 = 22.4),
+      label = "22.4 L/mol (ideal gas)",
+      source = "Telmosse (2022), p. 17"
+    ),
+    real_gas = list(
+      value = c(O2 = 22.3858, CO2 = 22.2966),
+      label = "O2 22.3858, CO2 22.2966 L/mol (real gases)",
+      source = "P\u00e9ronnet & Massicotte (1991), Table 1"
+    )
+  ),
+  protein = list(
+    livesey_elia = list(
+      kj_g = 19.68,    # energy density, kJ/g
+      kj_l_o2 = 19.48, # heat equivalent of O2, kJ/L
+      rq = 0.835,
+      n_ratio = 6.25,  # g protein per g N
+      label = "general values: 19.68 kJ/g, 19.48 kJ/L O2, RQ 0.835",
+      source = "Livesey & Elia (1988), Table 6; 6.25 g/g N: p. 620"
+    ),
+    protein_type = list(
+      formula = c(C = 89, H = 148.5, O = 32, N = 23.5),
+      label = "protein-type C89H148.5O32N23.5, N to urea",
+      source = "Telmosse (2022), pp. 21-22; matches IOM (2005)"
+    ),
+    telmosse_table1 = list(
+      o2 = 1.0075, co2 = 0.8443, urea = 2.915,
+      label = "1.0075 L O2/g, 0.8443 L CO2/g, 2.915 g/g urea",
+      source = "Telmosse (2022), Table 1, p. 18"
+    )
+  ),
+  energy = list(
+    iom = list(
+      cho = 3.72, fat = 9.44, protein = 4.70,
+      label = "3.72 / 9.44 / 4.70 kcal/g",
+      source = "IOM (2005), Table 5-1 = Livesey & Elia (1988), Tables 2 and 6"
+    ),
+    peronnet_massicotte = list(
+      cho = 3.8683, fat = 9.7460, protein = 4.70,
+      label = "3.8683 / 9.7460 / 4.70 kcal/g (37 degrees C)",
+      source = "P\u00e9ronnet & Massicotte (1991), Table 1; protein: IOM (2005)"
+    )
+  )
+)
 
 #' Gas Exchange per Gram of Substrate
 #'
@@ -256,13 +307,181 @@ gas_yield <- function(formula, molar_volume = 22.414) {
   c(o2 = o2 * v[["O2"]] / mw, co2 = f[["C"]] * v[["CO2"]] / mw)
 }
 
+# Protein oxidized to urea:
+# CcHhOoNn + O2 -> (c - n/2) CO2 + (h/2 - n) H2O + n/2 CH4N2O
+# Returns L O2 and L CO2 per g protein, and g protein per g urea.
+protein_yield <- function(formula, molar_volume) {
+  u <- formula[["N"]] / 2                                   # mol urea per mol
+  mw <- sum(atomic_weight[c("C", "H", "O", "N")] * formula[c("C", "H", "O", "N")])
+  cc <- formula[["C"]] - u                                  # C that leaves as CO2
+  o2 <- cc + (formula[["H"]] - 4 * u) / 4 - (formula[["O"]] - u) / 2
+  c(o2 = o2 * molar_volume[["O2"]] / mw,
+    co2 = cc * molar_volume[["CO2"]] / mw,
+    urea = mw / (u * urea_molar_mass))
+}
+
+#' Choose the Constants of the Calculations
+#'
+#' Build the set of constants that every calculation step uses: the CHO and fat
+#' equations, the protein gas exchange and urea factor, the CO2 yield of glucose
+#' for the 13C equations, and the energy per gram. Each part has documented
+#' options; the defaults are those of oxidizr. Give the result to
+#' [analyze_oxidation()] (argument `constants`), or compare several sets with
+#' [compare_constants()].
+#'
+#' @param lipid The lipid whose oxidation reaction sets the fat equation:
+#'   \describe{
+#'     \item{`"tag_type"`}{(default) TAG-type C53.4H99.2O6 of Telmosse (2022,
+#'       p. 20), chosen to match IOM (2005, Table 5-1): RQ 0.710.}
+#'     \item{`"diop"`}{dioleoyl-palmitoyl-glycerol C55H102O6, the reference fat
+#'       of Livesey & Elia (1988, Table 4): RQ 0.7097.}
+#'     \item{`"pos"`}{palmitoyl-stearoyl-oleoyl-glycerol C55H104O6, used by
+#'       Frayn (1983) and Ferrannini (1988).}
+#'     \item{`"fatty_acid"`}{the mean fatty acid of human adipose tissue,
+#'       C17.2702H32.7142O2, of Péronnet & Massicotte (1991, Table 1), also
+#'       used by Jeukendrup & Wallis (2005).}
+#'   }
+#' @param molar_volume The volume of one mole of O2 and CO2 at STPD:
+#'   \describe{
+#'     \item{`"livesey_elia"`}{(default) 22.414 L/mol for both gases (Livesey &
+#'       Elia, 1988). Glucose has an RQ of 1.}
+#'     \item{`"ideal_22.4"`}{22.4 L/mol for both gases (Telmosse, 2022, p. 17).}
+#'     \item{`"real_gas"`}{22.3858 L/mol for O2 and 22.2966 L/mol for CO2,
+#'       the real-gas values of Péronnet & Massicotte (1991, Table 1). Glucose
+#'       has an RQ of 0.996, so CHO increases by about 2 percent and fat decreases
+#'       by about 5 percent at RER 0.92.}
+#'   }
+#' @param protein The protein gas exchange and urea factor:
+#'   \describe{
+#'     \item{`"livesey_elia"`}{(default) the general values of Livesey & Elia
+#'       (1988, Table 6): 19.68 kJ/g / 19.48 kJ/L O2 = 1.0103 L O2/g, RQ 0.835;
+#'       6.25 g protein per g N (p. 620), so 2.9154 g protein per g urea.}
+#'     \item{`"protein_type"`}{the protein-type C89H148.5O32N23.5 of Telmosse
+#'       (2022, pp. 21-22), oxidized to urea, at the chosen molar volume.}
+#'     \item{`"telmosse_table1"`}{1.0075 L O2/g, 0.8443 L CO2/g and 2.915 g
+#'       per g urea (Telmosse, 2022, Table 1), the values of earlier oxidizr
+#'       versions.}
+#'   }
+#' @param energy The energy per gram of CHO, fat and protein:
+#'   \describe{
+#'     \item{`"iom"`}{(default) 3.72, 9.44 and 4.70 kcal/g: IOM (2005, Table
+#'       5-1), which repeats Livesey & Elia (1988, Tables 2 and 6).}
+#'     \item{`"peronnet_massicotte"`}{3.8683 kcal/g for glucose and 9.7460
+#'       kcal/g for the mean fatty acid at 37 degrees C (Péronnet & Massicotte,
+#'       1991, Table 1); protein 4.70 kcal/g. Use it with
+#'       `lipid = "fatty_acid"`.}
+#'   }
+#'
+#' @return A list of class `oxidation_constants` with the elements of
+#'   [stoich_coefficients], `energy` (a list like [energy_factors]), and
+#'   `choices` (the option of each part).
+#' @export
+#'
+#' @seealso [stoich_coefficients], [compare_constants()], `vignette("stoichiometry")`
+#' @references
+#'   Ferrannini, E. (1988). The theoretical bases of indirect calorimetry: a
+#'   review. *Metabolism*, *37*(3), 287-301.
+#'
+#'   Frayn, K. N. (1983). Calculation of substrate oxidation rates in vivo from
+#'   gaseous exchange. *Journal of Applied Physiology*, *55*(2), 628-634.
+#'
+#'   Institute of Medicine (2005). *Dietary Reference Intakes for Energy,
+#'   Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino
+#'   Acids*. National Academies Press. \doi{10.17226/10490}
+#'
+#'   Jeukendrup, A. E., & Wallis, G. A. (2005). Measurement of substrate
+#'   oxidation during exercise by means of gas exchange measurements.
+#'   *International Journal of Sports Medicine*, *26*(Suppl 1), S28-S37.
+#'
+#'   Livesey, G., & Elia, M. (1988). *The American Journal of Clinical
+#'   Nutrition*, *47*(4), 608-628.
+#'
+#'   Péronnet, F., & Massicotte, D. (1991). *Canadian Journal of Sport
+#'   Sciences*, *16*(1), 23-29.
+#'
+#'   Telmosse, E. (2022). *Contribution des glucides exogènes à la fourniture
+#'   d’énergie lors d’un effort prolongé : analyse par régression multiple*.
+#'   Mémoire de maîtrise, Université de Montréal.
+#'
+#' @examples
+#' oxidation_constants()
+#'
+#' # The equations of Péronnet & Massicotte (1991) and Jeukendrup & Wallis (2005)
+#' oxidation_constants(lipid = "fatty_acid", molar_volume = "real_gas")
+oxidation_constants <- function(lipid = "tag_type",
+                                molar_volume = "livesey_elia",
+                                protein = "livesey_elia",
+                                energy = "iom") {
+  lipid <- match.arg(lipid, names(constant_options$lipid))
+  molar_volume <- match.arg(molar_volume, names(constant_options$molar_volume))
+  protein <- match.arg(protein, names(constant_options$protein))
+  energy <- match.arg(energy, names(constant_options$energy))
+
+  if (energy == "peronnet_massicotte" && lipid != "fatty_acid") {
+    cli::cli_warn(c(
+      "The 9.7460 kcal/g of P\u00e9ronnet & Massicotte (1991) is for their mean fatty acid.",
+      "i" = "Use {.code lipid = \"fatty_acid\"} with {.code energy = \"peronnet_massicotte\"}."
+    ))
+  }
+
+  v <- constant_options$molar_volume[[molar_volume]]$value
+  cho <- gas_yield(c(C = 6, H = 12, O = 6), v)
+  fat <- gas_yield(constant_options$lipid[[lipid]]$formula, v)
+  # [CHO, fat] (g/min) = k %*% [VO2, VCO2] (L/min)
+  k <- solve(rbind(c(cho[["o2"]], fat[["o2"]]),
+                   c(cho[["co2"]], fat[["co2"]])))
+
+  p <- constant_options$protein[[protein]]
+  pro <- if (!is.null(p$formula)) {
+    protein_yield(p$formula, v)
+  } else if (!is.null(p$rq)) {
+    urea_n <- 2 * atomic_weight[["N"]] / urea_molar_mass  # g N per g urea
+    c(o2 = p$kj_g / p$kj_l_o2, co2 = p$rq * p$kj_g / p$kj_l_o2, urea = p$n_ratio * urea_n)
+  } else {
+    c(o2 = p$o2, co2 = p$co2, urea = p$urea)
+  }
+
+  e <- constant_options$energy[[energy]]
+  structure(
+    list(
+      cho_vo2 = k[1, 1], cho_vco2 = k[1, 2],
+      fat_vo2 = k[2, 1], fat_vco2 = k[2, 2],
+      protein_vo2 = pro[["o2"]],      # L O2 per g protein
+      protein_vco2 = pro[["co2"]],    # L CO2 per g protein
+      protein_urea = pro[["urea"]],   # g protein per g urea
+      co2_cho_ratio = cho[["co2"]],   # L CO2 per g glucose (13C)
+      energy = list(cho = e$cho, fat = e$fat, protein = e$protein),
+      choices = list(lipid = lipid, molar_volume = molar_volume,
+                     protein = protein, energy = energy)
+    ),
+    class = "oxidation_constants"
+  )
+}
+
+#' @export
+print.oxidation_constants <- function(x, ...) {
+  cat("<oxidation_constants>\n")
+  for (part in names(x$choices)) {
+    opt <- constant_options[[part]][[x$choices[[part]]]]
+    cat(sprintf("  %-13s %s\n  %-13s %s\n", gsub("_", " ", part), opt$label, "", opt$source))
+  }
+  f4 <- function(v) formatC(v, format = "f", digits = 4)
+  cat(sprintf("  CHO (g/min) = %s VCO2 - %s VO2\n", f4(x$cho_vco2), f4(-x$cho_vo2)))
+  cat(sprintf("  Fat (g/min) = %s VO2 - %s VCO2\n", f4(x$fat_vo2), f4(-x$fat_vco2)))
+  cat(sprintf("  Protein: %s L O2/g, %s L CO2/g, %s g per g urea\n",
+              f4(x$protein_vo2), f4(x$protein_vco2), f4(x$protein_urea)))
+  cat(sprintf("  13C: k = %s L CO2 per g glucose\n", f4(x$co2_cho_ratio)))
+  invisible(x)
+}
+
 #' Energy conversion factors
 #'
-#' Energy released per gram of substrate oxidized (kcal/g). The values are the
-#' heats of combustion of IOM (2005), Table 5-1, which repeats Livesey & Elia
-#' (1988): glucose 15.56 kJ/g (Table 2), general fat 39.5 kJ/g and protein
-#' oxidized in the body 19.68 kJ/g (Table 6; N excreted as urea, ammonia and
-#' creatinine). Telmosse (2022, Table 1) uses the same values.
+#' Energy released per gram of substrate oxidized (kcal/g), from the default
+#' [oxidation_constants()]. The values are the heats of combustion of IOM
+#' (2005), Table 5-1, which repeats Livesey & Elia (1988): glucose 15.56 kJ/g
+#' (Table 2), general fat 39.5 kJ/g and protein oxidized in the body 19.68
+#' kJ/g (Table 6; N excreted as urea, ammonia and creatinine). Telmosse (2022,
+#' Table 1) uses the same values.
 #'
 #' @format A named list with three elements:
 #' \describe{
@@ -270,7 +489,7 @@ gas_yield <- function(formula, molar_volume = 22.414) {
 #'   \item{fat}{Triacylglycerol: 9.44 kcal/g}
 #'   \item{protein}{Protein oxidized in the body: 4.70 kcal/g}
 #' }
-#' @seealso [stoich_coefficients], `vignette("stoichiometry")`
+#' @seealso [oxidation_constants()], [stoich_coefficients], `vignette("stoichiometry")`
 #' @references
 #'   Institute of Medicine (2005). *Dietary Reference Intakes for Energy,
 #'   Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino
@@ -279,17 +498,14 @@ gas_yield <- function(formula, molar_volume = 22.414) {
 #'   Livesey, G., & Elia, M. (1988). *The American Journal of Clinical
 #'   Nutrition*, *47*(4), 608-628.
 #' @export
-energy_factors <- list(
-  cho = substrates$glucose$kcal_g,
-  fat = substrates$lipid$kcal_g,
-  protein = substrates$protein$kcal_g
-)
+energy_factors <- oxidation_constants()$energy
 
 #' Stoichiometric coefficients
 #'
 #' Coefficients that convert gas exchange (L/min) into substrate oxidation
-#' (g/min). The package computes them when it is built, from balanced
-#' reactions, as Telmosse (2022, pp. 17-26) shows step by step.
+#' (g/min), from the default [oxidation_constants()]. The package computes them
+#' when it is built, from balanced reactions, as Telmosse (2022, pp. 17-26)
+#' shows step by step. Use [oxidation_constants()] to choose other options.
 #'
 #' @details
 #' The gas volumes per gram come from [gas_yield()] at 22.414 L/mol
@@ -320,7 +536,8 @@ energy_factors <- list(
 #'   \item{protein_urea}{g protein oxidized per g urea excreted}
 #'   \item{co2_cho_ratio}{L CO2 per g glucose, the k of the 13C equations}
 #' }
-#' @seealso [gas_yield()], [energy_factors], `vignette("stoichiometry")`
+#' @seealso [oxidation_constants()], [gas_yield()], [energy_factors],
+#'   `vignette("stoichiometry")`
 #' @references
 #'   Telmosse, E. (2022). *Contribution des glucides exogènes à la fourniture
 #'   d’énergie lors d’un effort prolongé : analyse par régression multiple*.
@@ -334,20 +551,7 @@ energy_factors <- list(
 #'   Péronnet, F., & Massicotte, D. (1991). *Canadian Journal of Sport
 #'   Sciences*, *16*(1), 23-29.
 #' @export
-stoich_coefficients <- local({
-  cho <- gas_yield(substrates$glucose$formula)
-  fat <- gas_yield(substrates$lipid$formula)
-  # [CHO, fat] (g/min) = k %*% [VO2, VCO2] (L/min)
-  k <- solve(rbind(c(cho[["o2"]], fat[["o2"]]),
-                   c(cho[["co2"]], fat[["co2"]])))
-  pro <- substrates$protein
-  urea_n <- 2 * atomic_weight[["N"]] / urea_molar_mass # g N per g urea
-  list(
-    cho_vo2 = k[1, 1], cho_vco2 = k[1, 2],
-    fat_vo2 = k[2, 1], fat_vco2 = k[2, 2],
-    protein_vo2 = pro$kj_g / pro$kj_l_o2,           # L O2 per g protein
-    protein_vco2 = pro$rq * pro$kj_g / pro$kj_l_o2, # L CO2 per g protein
-    protein_urea = pro$n_ratio * urea_n,            # g protein per g urea
-    co2_cho_ratio = cho[["co2"]]                    # L CO2 per g glucose (13C)
-  )
-})
+stoich_coefficients <- unclass(oxidation_constants())[c(
+  "cho_vo2", "cho_vco2", "fat_vo2", "fat_vco2",
+  "protein_vo2", "protein_vco2", "protein_urea", "co2_cho_ratio"
+)]

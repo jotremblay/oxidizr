@@ -4,7 +4,7 @@
 \alias{calc_rref}
 \title{Calculate Reference Enrichment (Rref)}
 \usage{
-calc_rref(isotopes, control_protocol, by_time = TRUE)
+calc_rref(isotopes, control_protocol, by_time = TRUE, by_subject = FALSE)
 }
 \arguments{
 \item{isotopes}{An IsotopeData object}
@@ -12,9 +12,17 @@ calc_rref(isotopes, control_protocol, by_time = TRUE)
 \item{control_protocol}{Name of the control/placebo protocol}
 
 \item{by_time}{Logical, calculate Rref at each time point (default: TRUE)}
+
+\item{by_subject}{Logical, calculate one Rref for each subject from their
+own control trial (default: FALSE). Use it in crossover studies: it
+removes the between-subject spread of the background enrichment from the
+error of each subject. With FALSE, every subject gets the control-group
+mean.}
 }
 \value{
-A tibble with Rref values
+A tibble with Rref values: \code{rref}, \code{rref_sd} (SD over the control
+observations of each group) and \code{n} (number of non-missing values), with the time column and, if
+\code{by_subject}, the ID column.
 }
 \description{
 Calculate baseline 13C enrichment from control/placebo condition.
