@@ -10,3 +10,4 @@
 ^\.lintr$
 ^\.claude$
 ^CLAUDE\.md$
+^\.project-map$
