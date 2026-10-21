@@ -6,27 +6,37 @@ NULL
 
 #' Calculate Sweat Loss
 #'
-#' Estimate sweat loss from mass balance considering fluid intake and
-#' respiratory gas/water losses.
+#' Estimate sweat loss from a body-mass balance: body mass change, fluid
+#' intake, urine output, and respiratory gas and water losses.
 #'
-#' @param subjects A SubjectData object or data frame with mass/fluid data
+#' @param subjects A SubjectData object with mass and fluid data
 #' @param calo A CalorimetryData object for respiratory calculations
 #' @param environment An EnvironmentData object for vapor pressure calculations
 #' @param exercise_duration Exercise duration in minutes (default: 120)
-#' @param baseline_water_ml Baseline water intake in mL added to fluid balance
-#'   calculation (default: 2000). Set to 0 if baseline water is already included
-#'   in the water_ingested column of SubjectData.
+#' @param baseline_water_ml Water intake in mL that is not in the water column
+#'   of SubjectData, added to the fluid balance (default: 0).
 #' @param ve_vo2_ratio Ventilation to VO2 ratio used to estimate minute
 #'   ventilation when VE data is not available (default: 25). Typical range
 #'   during moderate exercise is 20-30.
 #'
-#' @return A tibble with sweat loss estimates (kg)
+#' @details
+#' sweat (kg) = initial mass + (water + baseline water + saline) / 1000
+#' - (expired CO2 mass - O2 mass taken up + respiratory water) / 1000
+#' - urine / 1000 - final mass
+#'
+#' Urine is the volume (mL) passed between the two weighings, read from the
+#' `urine` entry of `subjects@fluid_cols`. If that column is absent, urine is
+#' taken as 0 mL. When SubjectData has a protocol column, the balance is
+#' computed for each subject and protocol.
+#'
+#' @return A tibble with the ID column, the protocol column (if any) and
+#'   `sweat_loss` (kg)
 #' @export
 calc_sweat_loss <- function(subjects,
                             calo,
                             environment,
                             exercise_duration = 120,
-                            baseline_water_ml = 2000,
+                            baseline_water_ml = 0,
                             ve_vo2_ratio = 25) {
 
   # Extract data from S7 objects or use directly
@@ -37,6 +47,8 @@ calc_sweat_loss <- function(subjects,
     final_mass_col <- subjects@mass_cols$final
     water_col <- subjects@fluid_cols$water
     saline_col <- subjects@fluid_cols$saline
+    urine_col <- subjects@fluid_cols$urine
+    proto <- intersect(subjects@protocol_col, names(subj_df))
   } else {
     cli::cli_abort("subjects must be a SubjectData object")
   }
@@ -61,54 +73,72 @@ calc_sweat_loss <- function(subjects,
     cli::cli_abort("calo must be a CalorimetryData object")
   }
 
+  has_urine <- !is.null(urine_col) && urine_col %in% names(subj_df)
+  if (!has_urine) {
+    cli::cli_alert_info("No urine column in subject data; urine output taken as 0 mL.")
+  }
+
   # Convert VO2/VCO2 to L/min if needed
   unit_factor <- if (vo2_unit == "mL/min") 1 / 1000 else 1
 
-  # Calculate mean VE per subject (assuming ventilation data or estimate from VO2)
-  # VE is typically ~20-25 * VO2 during moderate exercise
+  # Mean gas exchange per subject, and per protocol when calorimetry has it.
+  # VE is estimated from VO2 (CalorimetryData holds no VE column).
+  calo_proto <- intersect(proto, names(calo_df))
   calo_summary <- calo_df |>
-    dplyr::group_by(.data[[calo_id_col]]) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(c(calo_id_col, calo_proto)))) |>
     dplyr::summarise(
       VO2_mean = mean(.data[[vo2_col]], na.rm = TRUE) * unit_factor,
       VCO2_mean = mean(.data[[vco2_col]], na.rm = TRUE) * unit_factor,
-      # Estimate VE if not available (uses ve_vo2_ratio parameter)
       VE_mean = VO2_mean * ve_vo2_ratio,
       .groups = "drop"
     )
 
-  # Merge all data
+  # Merge all data on ID, plus protocol where both tables have it
   result <- subj_df |>
-    dplyr::left_join(env_df, by = stats::setNames(env_id_col, id_col)) |>
-    dplyr::left_join(calo_summary, by = stats::setNames(calo_id_col, id_col)) |>
+    dplyr::left_join(env_df, by = c(stats::setNames(env_id_col, id_col), intersect(proto, names(env_df))),
+                     relationship = "many-to-one") |>
+    dplyr::left_join(calo_summary, by = c(stats::setNames(calo_id_col, id_col), calo_proto),
+                     relationship = "many-to-one")
+  # Keep the subject protocol column (a join can change its type)
+  result[proto] <- subj_df[proto]
+  result <- result |>
     dplyr::mutate(
-      # Calculate expired gas mass loss
-      expired_O2_mass = .data$VO2_mean * exercise_duration / 22.4 * 32,
-      expired_CO2_mass = .data$VCO2_mean * exercise_duration / 22.4 * 44,
-      expired_gas_lost = .data$expired_CO2_mass - .data$expired_O2_mass,
-
-      # Calculate water vapor loss
-      # Saturated vapor pressure (Antoine equation approximation)
-      pH2O_saturated = 5.53275 * 10^(0.02585 * .data[[temp_col]]),
-      pH2O_ambient = .data$pH2O_saturated * (.data[[humidity_col]] / 100),
-
-      # Water vapor in/out (assuming body temp 37C -> 47 mmHg)
-      H2O_vapor_in = (.data$VE_mean * exercise_duration / .data[[pressure_col]]) * .data$pH2O_ambient,
-      H2O_vapor_out = (.data$VE_mean * exercise_duration / .data[[pressure_col]]) * 47,
-
-      # Convert to mass (corrected for temperature)
-      H2O_mass_lost = (((273 * (((.data$H2O_vapor_out - .data$H2O_vapor_in) *
-                                  .data[[pressure_col]]) / 760)) / (273 + 37)) / 22.4) * 18,
-
-      # Mass balance
-      body_mass_gain = .data[[initial_mass_col]] +
-        (.data[[water_col]] + baseline_water_ml + .data[[saline_col]]) / 1000,
-      mass_lost = (.data$expired_gas_lost + .data$H2O_mass_lost) / 1000,
-      virtual_mass = .data$body_mass_gain - .data$mass_lost,
-      sweat_loss = .data$virtual_mass - .data[[final_mass_col]]
+      sweat_loss = sweat_balance(
+        vo2 = .data$VO2_mean,
+        vco2 = .data$VCO2_mean,
+        ve = .data$VE_mean,
+        temperature = .data[[temp_col]],
+        humidity = .data[[humidity_col]],
+        pressure = .data[[pressure_col]],
+        initial_mass = .data[[initial_mass_col]],
+        final_mass = .data[[final_mass_col]],
+        water = .data[[water_col]],
+        saline = .data[[saline_col]],
+        urine = if (has_urine) .data[[urine_col]] else 0,
+        exercise_duration = exercise_duration,
+        baseline_water_ml = baseline_water_ml
+      )
     ) |>
-    dplyr::select(dplyr::all_of(id_col), sweat_loss)
+    dplyr::select(dplyr::all_of(c(id_col, proto)), "sweat_loss")
 
   tibble::as_tibble(result)
+}
+
+# Sweat loss (kg) from a body-mass balance. Shared by calc_sweat_loss() and
+# tar_oxidation_analysis(). Gas exchange in L/min, fluids in mL, masses in kg,
+# temperature in degrees C, relative humidity in %, pressure in mmHg.
+sweat_balance <- function(vo2, vco2, ve, temperature, humidity, pressure,
+                          initial_mass, final_mass, water, saline, urine,
+                          exercise_duration, baseline_water_ml = 0) {
+  # Expired CO2 mass minus O2 mass taken up (g), 22.4 L/mol
+  gas_lost <- (vco2 * 44 - vo2 * 32) * exercise_duration / 22.4
+  # Respiratory water (g): saturated vapor pressure of ambient air (Antoine
+  # approximation) against expired air saturated at 37 degrees C (47 mmHg)
+  ph2o_ambient <- 5.53275 * 10^(0.02585 * temperature) * humidity / 100
+  vapor_l <- ve * exercise_duration / pressure * (47 - ph2o_ambient)
+  h2o_lost <- 273 * vapor_l * pressure / 760 / (273 + 37) / 22.4 * 18
+  intake <- (water + baseline_water_ml + saline) / 1000
+  initial_mass + intake - (gas_lost + h2o_lost + urine) / 1000 - final_mass
 }
 
 #' Calculate Urea Loss
@@ -119,7 +149,8 @@ calc_sweat_loss <- function(subjects,
 #' @param sweat_loss A data frame with sweat loss (from calc_sweat_loss)
 #' @param subjects A SubjectData object (for urine volume)
 #'
-#' @return A tibble with urea loss components
+#' @return A tibble with the key columns of `sweat_loss` (ID and, if any,
+#'   protocol) and the urea loss components
 #' @export
 calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
 
@@ -133,22 +164,37 @@ calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
     cli::cli_abort("urea must be a UreaData object")
   }
 
-  # Get urine volume if available
+  # Get urine volume (per protocol, if any) from the subject data
   if (!is.null(subjects) && S7_inherits(subjects, SubjectData)) {
-    if ("urine" %in% names(subjects@fluid_cols)) {
+    urine_col <- subjects@fluid_cols$urine
+    if (!is.null(urine_col) && urine_col %in% names(subjects@data)) {
+      proto <- intersect(subjects@protocol_col, names(subjects@data))
       urine_vol <- subjects@data |>
-        dplyr::select(dplyr::all_of(c(subjects@id_col, "urine"))) |>
-        dplyr::rename(urine_vol = "urine")
+        dplyr::select(dplyr::all_of(c(subjects@id_col, proto, urine_col))) |>
+        dplyr::rename(urine_vol = dplyr::all_of(urine_col))
 
+      # The subject urine volume replaces any urine_vol column of the urea data
       urea_df <- urea_df |>
-        dplyr::left_join(urine_vol, by = stats::setNames(subjects@id_col, id_col))
+        dplyr::select(-dplyr::any_of("urine_vol")) |>
+        dplyr::left_join(
+          urine_vol,
+          by = c(stats::setNames(subjects@id_col, id_col), intersect(proto, names(urea_df)))
+        )
       urine_vol_col <- "urine_vol"
     }
   }
 
-  # Calculate urea losses
+  # Join sweat loss on ID, plus protocol where both tables have it
+  sweat_id <- if (!is.null(subjects) && S7_inherits(subjects, SubjectData)) subjects@id_col else id_col
+  if (!sweat_id %in% names(sweat_loss)) {
+    cli::cli_abort("sweat_loss must contain the ID column {.val {sweat_id}}.")
+  }
+  keys <- setdiff(names(sweat_loss), c(sweat_id, "sweat_loss"))
   result <- urea_df |>
-    dplyr::left_join(sweat_loss, by = id_col) |>
+    dplyr::left_join(
+      sweat_loss,
+      by = c(stats::setNames(sweat_id, id_col), intersect(keys, names(urea_df)))
+    ) |>
     dplyr::mutate(
       # Urea loss from urine (mmol)
       urine_urea_loss = .data[[urine_vol_col]] * .data[[urine_urea_col]] / 1000,
@@ -156,10 +202,10 @@ calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
       sweat_urea_loss = .data$sweat_loss * .data[[sweat_urea_col]],
       # Total urea loss (mmol)
       total_urea_loss = .data$sweat_urea_loss + .data$urine_urea_loss,
-      # Convert to mass (g) - urea MW = 60 g/mol
-      urea_mass_loss = .data$total_urea_loss / 1000 * 60
+      # Convert to mass (g), with the molar mass of urea (60.056 g/mol)
+      urea_mass_loss = .data$total_urea_loss / 1000 * urea_molar_mass
     ) |>
-    dplyr::select(dplyr::all_of(id_col),
+    dplyr::select(dplyr::all_of(c(id_col, keys)),
                   urine_urea_loss, sweat_urea_loss, total_urea_loss, urea_mass_loss)
 
   tibble::as_tibble(result)
@@ -167,32 +213,32 @@ calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
 
 #' Calculate Protein Oxidation from Urea
 #'
-#' Estimate protein oxidation rate from total urea nitrogen loss.
-#' Uses the conversion factor of 2.915 (grams protein per gram urea).
+#' Estimate protein oxidation rate from total urea loss.
 #'
 #' @param urea_loss A data frame from calc_urea_loss (or with urea_mass_loss column)
 #' @param exercise_duration Exercise duration in minutes (default: 120)
-#' @param conversion_factor Protein/urea conversion factor (default: 2.915)
+#' @param conversion_factor Grams of protein oxidized per gram of urea excreted
+#'   (default: `stoich_coefficients$protein_urea`, 2.8660)
 #' @param id_col Name of the ID column
+#' @param protocol_col Name of the protocol column to keep in the output
+#'   (optional). Keep it when protein oxidation differs between protocols.
 #'
 #' @return A tibble with protein oxidation rates (g/min)
 #' @export
 #'
 #' @details
-#' The conversion factor of 2.915 is derived from the work of Telmosse (2022),
-#' which states that 1 gram of urea excreted is equivalent to 0.343 grams of protein oxidized.
-#' This value is based on the protein formula (`C89H148.5O32N23.5`) described in
-#' Institute of Medicine (2005).
+#' protein_ox = urea_mass * conversion_factor / exercise_duration
 #'
-#' - Nitrogen content of proteins (~16%)
-#' - Nitrogen content of urea (46.6%)
-#' - Complete oxidation of amino acids
-#'
-#' protein_ox = urea_mass * 2.915 / exercise_duration
+#' The default factor comes from Kleiber's standard protein without sulfur,
+#' C100H159N26O32 (16.3% N), whose N leaves as urea: 1 mol of protein
+#' (2237.5 g) gives 13 mol of urea (780.7 g), so 2.8660 g protein per g urea.
+#' With the conventional 16% N (6.25 g protein per g N; Livesey & Elia, 1988,
+#' p. 620), the factor is 2.9154; see [oxidation_constants()].
 calc_protein_oxidation <- function(urea_loss,
                                    exercise_duration = 120,
-                                   conversion_factor = 2.915,
-                                   id_col = "id") {
+                                   conversion_factor = stoich_coefficients$protein_urea,
+                                   id_col = "id",
+                                   protocol_col = NULL) {
 
   if (!"urea_mass_loss" %in% names(urea_loss)) {
     cli::cli_abort("urea_loss must contain 'urea_mass_loss' column")
@@ -205,7 +251,8 @@ calc_protein_oxidation <- function(urea_loss,
       # Protein oxidation rate (g/min)
       protein_ox = .data$total_protein_ox / exercise_duration
     ) |>
-    dplyr::select(dplyr::all_of(id_col), total_protein_ox, protein_ox)
+    dplyr::select(dplyr::all_of(c(id_col, intersect(protocol_col, names(urea_loss)))),
+                  total_protein_ox, protein_ox)
 
   tibble::as_tibble(result)
 }
@@ -215,14 +262,17 @@ calc_protein_oxidation <- function(urea_loss,
 #' Calculate the VO2 and VCO2 attributable to protein oxidation.
 #'
 #' @param protein_ox Protein oxidation rate (g/min) - vector or data frame
-#' @param vo2_factor VO2 per gram protein (default: 1.0075 L/g, derived from Institute of Medicine, 2005, as presented in Telmosse, 2022)
-#' @param vco2_factor VCO2 per gram protein (default: 0.8443 L/g, derived from Institute of Medicine, 2005, as presented in Telmosse, 2022)
+#' @param vo2_factor L O2 used per g protein (default:
+#'   `stoich_coefficients$protein_vo2`, 1.0443 L/g for Kleiber's standard
+#'   protein without sulfur oxidized to urea)
+#' @param vco2_factor L CO2 produced per g protein (default:
+#'   `stoich_coefficients$protein_vco2`, 0.8715 L/g, RQ 0.835)
 #'
 #' @return A tibble with VO2p and VCO2p values
 #' @export
 calc_protein_gas_exchange <- function(protein_ox,
-                                      vo2_factor = 1.0075,
-                                      vco2_factor = 0.8443) {
+                                      vo2_factor = stoich_coefficients$protein_vo2,
+                                      vco2_factor = stoich_coefficients$protein_vco2) {
 
   if (is.data.frame(protein_ox)) {
     if (!"protein_ox" %in% names(protein_ox)) {
@@ -246,12 +296,13 @@ calc_protein_gas_exchange <- function(protein_ox,
 #'
 #' @param total_energy Total energy expenditure (kcal/min or kcal)
 #' @param protein_percent Assumed protein contribution (default: 0.05 = 5%)
-#' @param protein_factor Energy per gram protein (default: 4.70 kcal/g)
+#' @param protein_factor Energy per gram protein (default:
+#'   `energy_factors$protein`, 4.70 kcal/g)
 #'
 #' @return Estimated protein oxidation (g/min or g)
 #' @export
 estimate_protein_simple <- function(total_energy,
                                     protein_percent = 0.05,
-                                    protein_factor = 4.70) {
+                                    protein_factor = energy_factors$protein) {
   (total_energy * protein_percent) / protein_factor
 }

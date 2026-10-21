@@ -154,10 +154,12 @@ list_columns <- function(results) {
 
 #' Quick Summary of Oxidation Results
 #'
-#' Print a quick summary of key oxidation metrics.
+#' Print a quick summary of key oxidation metrics as mean +/- SD across
+#' subjects (each subject's rows are averaged first, see
+#' [summarize_oxidation()]). Without a subject column, rows are the unit.
 #'
 #' @param results An OxidationResults object or data frame
-#' @param by Optional grouping variable
+#' @param by Optional grouping variable (currently unused)
 #'
 #' @return Invisible NULL (prints summary to console)
 #' @export
@@ -172,35 +174,30 @@ quick_summary <- function(results, by = NULL) {
   }
 
   cli::cli_h1("Oxidation Summary")
+  cli::cli_alert_info("Total observations: {nrow(df)}")
 
-  # Basic stats
-  n_obs <- nrow(df)
-  cli::cli_alert_info("Total observations: {n_obs}")
-
-  # Rate summaries
-  if ("cho_total" %in% names(df)) {
-    cho_mean <- mean(df$cho_total, na.rm = TRUE)
-    cho_sd <- sd(df$cho_total, na.rm = TRUE)
-    cli::cli_alert_info("CHO oxidation: {format_mean_sd(cho_mean, cho_sd)} g/min")
+  rate_labels <- c(
+    cho_total = "CHO oxidation", fat_total = "Fat oxidation",
+    cho_exo = "Exogenous CHO"
+  )
+  vars <- intersect(names(rate_labels), names(df))
+  if (length(vars) > 0) {
+    unit <- summary_unit(results, df)
+    s <- summarize_oxidation(df, vars = vars, unit = unit)
+    cli::cli_alert_info("n = {s$n} {if (is.null(unit)) 'rows' else 'subjects'}")
+    for (v in vars) {
+      txt <- format_mean_sd(s[[paste0(v, "_mean")]], s[[paste0(v, "_sd")]])
+      cli::cli_alert_info("{rate_labels[[v]]}: {txt} g/min")
+    }
   }
 
-  if ("fat_total" %in% names(df)) {
-    fat_mean <- mean(df$fat_total, na.rm = TRUE)
-    fat_sd <- sd(df$fat_total, na.rm = TRUE)
-    cli::cli_alert_info("Fat oxidation: {format_mean_sd(fat_mean, fat_sd)} g/min")
-  }
-
-  if (!is.null(energy) && "pct_cho_total" %in% names(energy)) {
-    pct_cho <- mean(energy$pct_cho_total, na.rm = TRUE)
-    pct_fat <- mean(energy$pct_fat, na.rm = TRUE)
-    cli::cli_alert_info("Energy from CHO: {round(pct_cho, 1)}%")
-    cli::cli_alert_info("Energy from fat: {round(pct_fat, 1)}%")
-  }
-
-  if ("cho_exo" %in% names(df)) {
-    exo_mean <- mean(df$cho_exo, na.rm = TRUE)
-    exo_sd <- sd(df$cho_exo, na.rm = TRUE)
-    cli::cli_alert_info("Exogenous CHO: {format_mean_sd(exo_mean, exo_sd)} g/min")
+  if (!is.null(energy) && all(c("pct_cho_total", "pct_fat") %in% names(energy))) {
+    e <- summarize_oxidation(energy, vars = c("pct_cho_total", "pct_fat"),
+                             unit = summary_unit(results, energy))
+    cho_txt <- format_mean_sd(e$pct_cho_total_mean, e$pct_cho_total_sd, 1)
+    fat_txt <- format_mean_sd(e$pct_fat_mean, e$pct_fat_sd, 1)
+    cli::cli_alert_info("Energy from CHO: {cho_txt}%")
+    cli::cli_alert_info("Energy from fat: {fat_txt}%")
   }
 
   invisible(NULL)

@@ -7,7 +7,7 @@
 estimate_protein_simple(
   total_energy,
   protein_percent = 0.05,
-  protein_factor = 4.7
+  protein_factor = energy_factors$protein
 )
 }
 \arguments{
@@ -15,7 +15,8 @@ estimate_protein_simple(
 
 \item{protein_percent}{Assumed protein contribution (default: 0.05 = 5\%)}
 
-\item{protein_factor}{Energy per gram protein (default: 4.70 kcal/g)}
+\item{protein_factor}{Energy per gram protein (default:
+\code{energy_factors$protein}, 4.70 kcal/g)}
 }
 \value{
 Estimated protein oxidation (g/min or g)

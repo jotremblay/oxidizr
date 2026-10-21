@@ -15,9 +15,9 @@ test_that("calc_substrate_oxidation works correctly", {
   expect_true("fat_total" %in% names(ox))
   expect_true("rer" %in% names(ox))
 
-  # CHO and fat should be non-negative
-  expect_true(all(ox$cho_total >= 0))
-  expect_true(all(ox$fat_total >= 0))
+  # At these RER values (0.92), CHO and fat are both positive
+  expect_true(all(ox$cho_total > 0))
+  expect_true(all(ox$fat_total > 0))
 
   # RER should be VCO2/VO2
   expected_rer <- df$vco2 / df$vo2
@@ -216,7 +216,7 @@ test_that("calc_cho_partition calculates endogenous correctly", {
   expect_equal(result$cho_endo, 1.5)
 })
 
-test_that("calc_cho_partition ensures non-negative endogenous", {
+test_that("calc_cho_partition keeps negative net endogenous CHO", {
   substrate_ox <- data.frame(
     id = 1,
     time = 30,
@@ -233,8 +233,8 @@ test_that("calc_cho_partition ensures non-negative endogenous", {
 
   result <- calc_cho_partition(substrate_ox, cho_exo)
 
-  # Should be clamped to 0
-  expect_equal(result$cho_endo, 0)
+  # Net rate, not truncated at 0
+  expect_equal(result$cho_endo, -0.5)
 })
 
 test_that("calc_cho_partition calculates muscle and liver when plasma available", {
@@ -269,7 +269,7 @@ test_that("calc_cho_partition calculates muscle and liver when plasma available"
   expect_equal(result$cho_liv, 0.7)
 })
 
-test_that("calc_cho_partition ensures non-negative muscle and liver", {
+test_that("calc_cho_partition keeps negative net muscle CHO", {
   substrate_ox <- data.frame(
     id = 1,
     time = 30,
@@ -292,6 +292,51 @@ test_that("calc_cho_partition ensures non-negative muscle and liver", {
 
   result <- calc_cho_partition(substrate_ox, cho_exo, cho_pla)
 
-  # Muscle should be clamped to 0
-  expect_equal(result$cho_mus, 0)
+  # Net rates, not truncated at 0
+  expect_equal(result$cho_mus, -0.5)
+  expect_equal(result$cho_liv, 1.0)
+})
+
+test_that("calc_substrate_oxidation joins protein by subject and protocol", {
+  calo <- CalorimetryData(
+    data = data.frame(id = c(1, 1), time = c(30, 30), protocol = c("CHO", "PLA"),
+                      vo2 = 2.5, vco2 = 2.3),
+    protocol_col = "protocol"
+  )
+  prot <- data.frame(id = c(1, 1), protocol = c("CHO", "PLA"), protein_ox = c(0.05, 0.10))
+
+  ox <- calc_substrate_oxidation(calo, protein_ox = prot)
+
+  expect_equal(nrow(ox), 2)
+  expect_equal(ox$protein_ox, c(0.05, 0.10))
+})
+
+test_that("calc_substrate_oxidation stops when a protein key repeats", {
+  calo <- CalorimetryData(data = data.frame(id = 1, time = 30, vo2 = 2.5, vco2 = 2.3))
+  prot <- data.frame(id = c(1, 1), protein_ox = c(0.05, 0.10))
+
+  expect_error(calc_substrate_oxidation(calo, protein_ox = prot))
+})
+
+test_that("calc_substrate_oxidation keeps the protocol factor", {
+  calo <- CalorimetryData(
+    data = data.frame(id = c(1, 1), time = c(30, 30),
+                      protocol = factor(c("PLA", "CHO"), levels = c("PLA", "CHO")),
+                      vo2 = 2.5, vco2 = 2.3),
+    protocol_col = "protocol"
+  )
+  prot <- data.frame(id = c(1, 1), protocol = c("CHO", "PLA"), protein_ox = c(0.05, 0.10))
+
+  ox <- calc_substrate_oxidation(calo, protein_ox = prot)
+
+  expect_equal(levels(ox$protocol), c("PLA", "CHO"))
+  expect_equal(ox$protein_ox, c(0.10, 0.05))
+})
+
+test_that("calc_substrate_oxidation returns negative fat when RER exceeds 1 (net lipogenesis)", {
+  calo <- CalorimetryData(data = data.frame(id = 1, time = 30, vo2 = 2.0, vco2 = 2.1))
+  ox <- calc_substrate_oxidation(calo)
+  k <- stoich_coefficients
+  expect_lt(ox$fat_total, 0)
+  expect_equal(ox$fat_total, k$fat_vo2 * 2.0 + k$fat_vco2 * 2.1)
 })

@@ -34,20 +34,30 @@ Calculate carbohydrate and fat oxidation rates from indirect calorimetry
 using stoichiometric equations.
 }
 \details{
-Uses equations commonly attributed to Jequier et al. and Frayn,
-with specific coefficients parameterized as presented in Telmosse (2022):
+The coefficients come from \link{stoich_coefficients}, which solves the
+balanced oxidation reactions of glucose and dioleoyl-palmitoyl-glycerol
+(see \code{vignette("stoichiometry")}). With the default coefficients:
 
-Non-protein calculations:
+Non-protein gas exchange:
 \itemize{
-\item VO2np = VO2 - (protein_ox * 1.0075)
-\item VCO2np = VCO2 - (protein_ox * 0.8443)
+\item VO2np = VO2 - protein_ox * 1.0443
+\item VCO2np = VCO2 - protein_ox * 0.8715
 }
 
 Substrate oxidation:
 \itemize{
-\item CHO (g/min) = 4.618 * VCO2np - 3.279 * VO2np
-\item Fat (g/min) = -1.712 * VCO2np + 1.712 * VO2np
+\item CHO (g/min) = 4.6143 * VCO2np - 3.2746 * VO2np
+\item Fat (g/min) = 1.7041 * VO2np - 1.7041 * VCO2np
 }
+
+The rates are net rates and are not truncated at zero. A negative fat
+oxidation (nonprotein RER above 1) estimates net lipogenesis, and a negative
+CHO oxidation (nonprotein RER below the RQ of fat) estimates net
+gluconeogenesis or a measurement problem (Frayn, 1983).
+
+If \code{protein_ox} is a data frame, it is joined by the ID column, and also by
+the protocol column when both tables have it. Each calorimetry row must
+match at most one protein row.
 \subsection{NA Handling Strategies}{
 
 When protein oxidation data contains NA values, the \code{na_protein_action}

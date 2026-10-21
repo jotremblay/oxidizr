@@ -138,16 +138,17 @@ test_that("calc_exogenous_cho returns correct structure", {
   expect_true("rref" %in% names(cho_exo))
 })
 
-test_that("calc_exogenous_cho produces non-negative values",
-{
+test_that("calc_exogenous_cho keeps missing enrichment as NA, not 0", {
   calo <- create_test_calorimetry_for_iso()
   iso <- create_test_isotope_data()
+  iso@rexp[[iso@rexp_col]][1] <- NA
   rref <- calc_rref(iso, control_protocol = "PLA")
 
   cho_exo <- calc_exogenous_cho(calo, iso, rref)
 
-  # All cho_exo should be >= 0
-  expect_true(all(cho_exo$cho_exo >= 0, na.rm = TRUE))
+  key <- iso@rexp[1, c(iso@id_col, iso@time_col, iso@protocol_col)]
+  row <- merge(cho_exo, key)
+  expect_true(is.na(row$cho_exo))
 })
 
 test_that("calc_exogenous_cho increases with enrichment", {

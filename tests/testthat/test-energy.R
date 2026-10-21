@@ -88,9 +88,31 @@ test_that("summarize_energy works by group", {
     e_total = c(10, 11, 9, 10)
   )
 
-  summary <- summarize_energy(energy, by = "protocol")
+  # No id column: rows are the unit, with a message
+  expect_message(
+    summary <- summarize_energy(energy, by = "protocol"),
+    "row"
+  )
 
   expect_equal(nrow(summary), 2)  # Two protocols
+  expect_equal(summary$n, c(2, 2))
   expect_true("pct_cho_total_mean" %in% names(summary))
   expect_true("pct_cho_total_sd" %in% names(summary))
+  expect_true("pct_cho_total_se" %in% names(summary))
+  expect_true("pct_cho_total_ci_low" %in% names(summary))
+  expect_true("e_total_ci_high" %in% names(summary))
+})
+
+test_that("summarize_energy averages each subject first", {
+  energy <- data.frame(
+    id = c(1, 1, 1, 2),
+    pct_cho_total = c(60, 62, 64, 50),
+    e_total = c(10, 11, 12, 9)
+  )
+
+  summary <- summarize_energy(energy)
+
+  expect_equal(summary$n, 2)
+  expect_equal(summary$pct_cho_total_mean, mean(c(62, 50)))
+  expect_equal(summary$e_total_sd, sd(c(11, 9)))
 })

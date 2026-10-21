@@ -179,44 +179,13 @@ method(print, ValidationResult) <- function(x, ...) {
 #' @export
 method(summary, OxidationResults) <- function(object, by = NULL, ...) {
   df <- object@oxidation_rates
-
-  # Identify numeric columns for summarizing
-  rate_cols <- c("cho_total", "fat_total", "protein",
-                 "cho_exo", "cho_endo", "cho_mus", "cho_liv")
-  available_cols <- intersect(rate_cols, names(df))
-
-  if (is.null(by)) {
-    # Overall summary
-    summary_df <- df |>
-      dplyr::summarise(
-        dplyr::across(
-          dplyr::all_of(available_cols),
-          list(mean = ~ mean(.x, na.rm = TRUE),
-               sd = ~ sd(.x, na.rm = TRUE)),
-          .names = "{.col}_{.fn}"
-        ),
-        n = dplyr::n()
-      )
-  } else {
-    # Summary by group
-    if (!by %in% names(df)) {
-      cli::cli_abort("Column '{by}' not found in oxidation_rates")
-    }
-    summary_df <- df |>
-      dplyr::group_by(.data[[by]]) |>
-      dplyr::summarise(
-        dplyr::across(
-          dplyr::all_of(available_cols),
-          list(mean = ~ mean(.x, na.rm = TRUE),
-               sd = ~ sd(.x, na.rm = TRUE)),
-          .names = "{.col}_{.fn}"
-        ),
-        n = dplyr::n()
-      ) |>
-      dplyr::ungroup()
+  vars <- intersect(c("cho_total", "fat_total", "protein_ox",
+                      "cho_exo", "cho_endo", "cho_mus", "cho_liv"), names(df))
+  if (!is.null(by) && !all(by %in% names(df))) {
+    cli::cli_abort("Column '{by}' not found in oxidation_rates")
   }
-
-  summary_df
+  # The subject is the unit, as in summarize_oxidation() and the tables
+  summarize_oxidation(df, vars = vars, by = by, unit = summary_unit(object, df))
 }
 
 #' @export

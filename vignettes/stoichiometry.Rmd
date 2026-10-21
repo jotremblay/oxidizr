@@ -1,0 +1,385 @@
+---
+title: "Stoichiometry of Substrate Oxidation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Stoichiometry of Substrate Oxidation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+oxidizr computes carbohydrate (CHO), fat and protein oxidation from VO2, VCO2
+and urea excretion. Its coefficients are not typed in: the package derives
+them from balanced oxidation reactions when it is built. The method follows
+chapter 1 of Telmosse (2022), which writes out every step of indirect
+respiratory calorimetry and of the 13C tracer calculation. This vignette gives
+the reactions, the constants, and the reasons for each choice, with the
+sources the thesis cites. Page numbers refer to Telmosse (2022).
+
+```{r setup}
+library(oxidizr)
+```
+
+## Principle
+
+Indirect respiratory calorimetry rests on two kinds of input: VO2 and VCO2
+measured at the mouth, plus urea or nitrogen excreted in urine and possibly
+sweat (Lemon & Mullin, 1980). It also rests on the stoichiometry of the
+aerobic oxidation of the substrates (Livesey & Elia, 1988). The thesis writes
+this stoichiometry for three reference substrates: glucose, a representative
+triacylglycerol (TAG) and a representative protein (p. 17).
+
+For 1 g of each substrate, k is the volume of O2 used and l the volume of CO2
+produced. With P the protein oxidized and m the urea produced per gram of
+protein, the system is (pp. 23-26):
+
+$$VO_2 = k_1\,CHO + k_2\,FAT + k_3\,P \qquad VCO_2 = l_1\,CHO + l_2\,FAT + l_3\,P \qquad urea = m\,P$$
+
+Because glucose has an RQ of 1 (k1 = l1), subtracting the two gas equations
+gives FAT directly; CHO follows from the VO2 equation. `gas_yield()` computes
+k and l from a molecular formula, and `stoich_coefficients` holds the solution:
+
+```{r}
+round(unlist(stoich_coefficients), 4)
+```
+
+These are the defaults of `calc_substrate_oxidation()`:
+CHO = `cho_vco2` VCO2 + `cho_vo2` VO2 and
+FAT = `fat_vo2` VO2 + `fat_vco2` VCO2, after removal of the protein share of
+VO2 and VCO2.
+
+## Gas volumes and atomic weights
+
+The thesis takes one mole of O2 or CO2 at STPD as 22.4 L and rounds atomic
+weights to 12, 1, 16 and 14 g/mol for C, H, O and N (p. 17). It notes that
+O2 and CO2 are not ideal gases and cites the real molar volumes of Péronnet &
+Massicotte (1991), 22.3858 L for O2 and 22.2966 L for CO2, but does not use
+them (p. 17).
+
+oxidizr uses 22.414 L/mol for both gases, the ideal-gas value of Livesey &
+Elia (1988), with the atomic weights of Péronnet & Massicotte (1991, Table 1).
+The molar volume has a larger effect than the choice of lipid (next sections):
+with the real-gas volumes, glucose has an RQ of 0.996 instead of 1.
+
+```{r}
+glucose <- c(C = 6, H = 12, O = 6)
+volumes <- list(
+  "22.4 L/mol" = 22.4,
+  "22.414 L/mol (Livesey & Elia, 1988)" = 22.414,
+  "Real gases (Péronnet & Massicotte, 1991)" = c(O2 = 22.3858, CO2 = 22.2966)
+)
+t(sapply(volumes, function(v) round(gas_yield(glucose, molar_volume = v), 4)))
+```
+
+All rows use the atomic weights of Péronnet & Massicotte (1991), so the
+22.4 L/mol row gives 0.7460 L/g; the thesis obtains 0.747 L/g with a molar
+mass of 180 g/mol (p. 20).
+
+## Carbohydrate: glucose
+
+C6H12O6 + 6 O2 → 6 CO2 + 6 H2O
+
+The thesis treats the choice of carbohydrate as simple, because glucose is
+the main simple carbohydrate, both as ingested and as stored (p. 42). Its
+storage forms, starch and glycogen, are polymers of glucosyl units
+(C6H10O5)n. Per glucosyl unit, glycogen uses 0.830 L O2/g, produces the same
+volume of CO2 and yields 4.18 kcal/g (pp. 42-43). The equations can use
+either form (p. 43).
+
+Two arguments make the choice of little practical importance. First, glucose
+formed from amino acids or glycerol is only an intermediate: VO2, VCO2 and,
+for amino acids, nitrogen output are the same whether a substrate is oxidized
+directly or after conversion to glucose. Indirect calorimetry sees only the
+net balance (Livesey & Elia, 1988; pp. 43-44). Second, the thesis concludes
+that there is no point in arguing whether CHO oxidation should be expressed
+as grams of glucose or grams of glycogen (p. 44).
+
+For the same reason, it does not follow Jeukendrup & Wallis (2005), who
+proposed different CHO equations for different exercise intensities. The
+shares of plasma glucose and muscle glycogen do change with intensity, but
+only isotope tracers can measure them (McCue & Welch, 2016). If they are
+measured, two equations are not necessary (Kipp et al., 2018); if they are
+not, there is no way to know whether the intensity-specific estimates are
+correct (p. 44). oxidizr therefore expresses CHO oxidation in grams of
+glucose.
+
+## Lipid: dioleoyl-palmitoyl-glycerol
+
+C55H102O6 + 77.5 O2 → 55 CO2 + 51 H2O
+
+oxidizr uses dioleoyl-palmitoyl-glycerol, a glycerol carrying one palmitic and
+two oleic acids, the reference fat of Livesey & Elia (1988, Table 4: RQ
+0.7097) and Elia & Livesey (1992, Table 1). It is close to the average
+triacylglycerol of human adipose tissue computed by Péronnet & Massicotte
+(1991) from 13 fatty acids, C54.81H100.14O6. At 22.414 L/mol it uses
+2.0212 L O2/g and produces 1.4344 L CO2/g. The other lipids below remain
+available through `oxidation_constants(lipid = )`.
+
+Each triacylglycerol is made of three fatty acids, drawn from about forty in
+humans and bound to glycerol in a random arrangement (Berry et al., 1986;
+Livesey & Elia, 1988). Calorimetry therefore needs one formula that stands
+for the TAGs most often oxidized, a "TAG-type" (p. 20). The thesis uses
+C53.4H99.2O6 because it matches the coefficients of the Institute of Medicine
+(2005): RQ 0.71 and 9.44 kcal/g (`lipid = "tag_type"`). The atom counts are not whole numbers
+because the formula stands for a mixture (p. 20). With 22.4 L/mol and
+836 g/mol, it uses 2.015 L O2/g and produces 1.431 L CO2/g (p. 21).
+
+The thesis then argues that the exact formula cannot be known (pp. 45-46):
+
+- Human TAGs contain seven main fatty acids in variable proportions
+  (Livesey & Elia, 1988), and nothing shows which ones lipolysis releases.
+- Adipose-tissue lipolysis seems to release fewer than three fatty acids per
+  glycerol, which points to incomplete lipolysis or re-esterification
+  (Björntorp et al., 1969). The fatty acids released can then differ from the
+  TAGs that store them.
+- The fatty acids that muscle oxidizes need not match those released by
+  adipose tissue.
+- The mean composition of adipose-tissue TAGs is fairly well known (Livesey &
+  Elia, 1988), but intramuscular TAGs, which supply much of the fat used in
+  exercise, are poorly documented: their composition, release and oxidation
+  (Havel et al., 1967).
+
+Earlier authors used different lipids (p. 48, Table 2): Frayn (1983) and
+Ferrannini (1988) used palmitoyl-stearoyl-oleoyl-glycerol, C55H104O6;
+Péronnet & Massicotte (1991) and Jeukendrup & Wallis (2005) used a mean fatty
+acid, C17.2702H32.7142O2. The thesis simulated the published equations over
+an RQ of 0.85 to 1.0 and a VO2 of 0.3 to 4.0 L/min. The differences in CHO
+and fat oxidation, energy expenditure and energy shares were small at every
+RQ (pp. 49-52). It concludes that the choice of lipid has neither theoretical
+interest, because the questions above have no answer, nor practical interest
+(p. 46).
+
+The table below repeats the comparison at VO2 = 2.50 and VCO2 = 2.30 L/min
+(RER 0.92), all at 22.414 L/mol. It adds dioleoyl-palmitoyl-glycerol, the
+oxidizr default (Livesey & Elia, 1988, Table 4: RQ 0.7097, 39.5 kJ/g), and
+tripalmitin, the fat of Kleiber (1961, Table 5.6); these rows are not in the
+thesis.
+
+```{r}
+lipids <- list(
+  "TAG-type (Telmosse, 2022)" = c(C = 53.4, H = 99.2, O = 6),
+  "Palmitoyl-stearoyl-oleoyl-glycerol (Frayn, 1983)" = c(C = 55, H = 104, O = 6),
+  "Dioleoyl-palmitoyl-glycerol (Livesey & Elia, 1988)" = c(C = 55, H = 102, O = 6),
+  "Tripalmitin (Kleiber, 1961)" = c(C = 51, H = 98, O = 6),
+  "Mean fatty acid (Péronnet & Massicotte, 1991)" = c(C = 17.2702, H = 32.7142, O = 2)
+)
+glc <- gas_yield(glucose)
+compare <- t(sapply(lipids, function(f) {
+  fat <- gas_yield(f)
+  k <- solve(rbind(c(glc[["o2"]], fat[["o2"]]), c(glc[["co2"]], fat[["co2"]])))
+  ox <- k %*% c(2.50, 2.30)
+  c(L_O2_per_g = fat[["o2"]], L_CO2_per_g = fat[["co2"]],
+    RQ = fat[["co2"]] / fat[["o2"]], CHO_g_min = ox[1], fat_g_min = ox[2])
+}))
+knitr::kable(compare, digits = 4)
+```
+
+## Protein
+
+The body holds thousands of proteins, so the calculation also needs a
+representative "protein-type" (Livesey & Elia, 1988; p. 21). The thesis uses
+C89H148.5O32N23.5 because it matches the coefficients of the Institute of
+Medicine (2005) (p. 21). Its nitrogen leaves as urea:
+
+C89H148.5O32N23.5 + 92.5 O2 → 77.25 CO2 + 50.75 H2O + 11.75 CO(NH2)2
+
+At 22.4 L/mol and 2057.5 g/mol, this gives 1.0070 L O2/g, 0.8410 L CO2/g and
+an RQ of 0.835 (p. 22). Table 1 of the thesis lists 1.0075 and 0.8443 L/g
+(p. 18), the values that earlier versions of oxidizr used. Oxidation of one
+mole gives 11.75 × 60 = 705 g of urea, that is 0.343 g of urea per g of
+protein, or 2.915 g of protein per g of urea; with 16% nitrogen, 1 g of
+nitrogen stands for 6.25 g of protein (p. 22). Sulfur from cysteine and
+methionine is ignored, because it is a small part of protein mass and cannot
+be measured independently (p. 22). As for lipids, the thesis judges that the
+choice of protein formula has neither theoretical nor practical interest
+(p. 48).
+
+oxidizr uses Kleiber's standard protein (1961, Table 4.2: 53% C, 7% H,
+16% N, 23% O and 1% S by weight), the protein that Elia & Livesey (1992,
+Table 1) wrote as C100H159N26O32S0.7. Kleiber (1961, p. 85) judged its sulfur
+small enough to neglect, so oxidizr leaves it out. With urea as the end
+product:
+
+C100H159N26O32 + 104.25 O2 → 87 CO2 + 53.5 H2O + 13 CO(NH2)2
+
+At 22.414 L/mol this gives 1.0443 L O2/g, 0.8715 L CO2/g and an RQ of 0.835,
+the value of Livesey & Elia (1988, Table 6) and the Institute of Medicine
+(2005). The protein is 16.3% nitrogen, so 1 g of urea comes from 2.8660 g of
+protein. The general values of Livesey & Elia (1988, Table 6), 1.0103 L O2/g,
+0.8436 L CO2/g and 2.9154 g of protein per g of urea (6.25 g per g of
+nitrogen), remain available with `oxidation_constants(protein =
+"livesey_elia")`.
+
+The thesis also describes how protein oxidation is measured (pp. 52-53).
+Complete calorimetry needs urea excretion in urine and sweat, but in short
+tests urine and sweat production is too small to measure it reliably. When
+urine and sweat cannot be collected, an average protein oxidation can be
+assumed, if the experimental situation does not change it (Romijn et al.,
+1992). This correction is acceptable when energy expenditure rises only a
+little; when it rises a lot, protein oxidation increases and the correction
+becomes less exact (Tarnopolsky et al., 1995). Urinary nitrogen tends to overestimate
+protein oxidation, because not all of it comes from protein. In exercise
+studies where protein contributes little energy, protein oxidation is often
+set to zero ("non-protein" calorimetry). The thesis notes that this is false
+in principle, but that the error on estimated energy expenditure is under 1%
+(p. 53). `calc_sweat_loss()`, `calc_urea_loss()` and `calc_protein_oxidation()`
+implement the urine and sweat balance.
+
+## Energy per gram
+
+The energy factors are the heats of combustion of the Institute of Medicine
+(2005, Table 5-1), reproduced in the thesis (Table 1, p. 18; Figure 2, p. 19):
+
+```{r}
+unlist(energy_factors)
+```
+
+They repeat Livesey & Elia (1988): glucose 15.56 kJ/g (Table 2), general fat
+39.5 kJ/g and protein 19.68 kJ/g (Table 6, for N excreted as urea, ammonia
+and creatinine in the ratio 90:5:5). The IOM table
+credits the protein value of 4.7 kcal/g to Livesey & Elia (1988).
+
+## Exogenous glucose oxidation with 13C
+
+A 13C balance on expired CO2 gives the oxidation of ingested glucose, G
+(g/min). The CO2 from exogenous glucose, k × G, carries the enrichment of the
+drink, Rexo; the rest carries the background enrichment, Rendo (pp. 66-67):
+
+$$VCO_2\,R_{exp} = k\,G\,R_{exo} + (VCO_2 - k\,G)\,R_{endo} \quad\Rightarrow\quad G = \frac{VCO_2\,(R_{exp} - R_{endo})}{k\,(R_{exo} - R_{endo})}$$
+
+This is the Mosora equation. Mosora et al. (1976) first presented the
+principle, the name comes from Mosora et al. (1981), Jandrain et al. (1989)
+showed the equation and Péronnet et al. (1990) derived it (p. 68). k is the
+CO2 produced per gram of glucose. The thesis uses 6 × 22.4 / 180 = 0.747 L/g
+(p. 20); oxidizr computes it from the same glucose reaction:
+
+```{r}
+stoich_coefficients$co2_cho_ratio
+```
+
+The thesis notes that atom fractions (13C/C) are strictly correct and ratios
+(13C/12C) are not, but that the difference is negligible at these enrichments
+(p. 68).
+
+**Background enrichment.** The 13C content of expired CO2 rises by up to 1‰
+PDB from rest to exercise, because glycogen is slightly richer in 13C than
+TAGs and its share of VCO2 rises with intensity (Schoeller et al., 1980;
+Massicotte et al., 1993; Bergman & Brooks, 1999). A resting Rendo therefore
+overestimates exogenous glucose oxidation (p. 70). The thesis lists four
+remedies (pp. 71-73): take Rendo from an exercise trial without exogenous
+glucose (Pallikarakis et al., 1986); measure with two enrichments and solve
+for G and Rendo (Péronnet et al., 1990); use a high artificial enrichment of
+20 to 100‰ PDB, which makes the drift negligible (Burelle et al., 1997); or
+use 14C, now avoided for ethical reasons (Beckers et al., 1994). In oxidizr,
+`calc_rref()` takes Rref from the control protocol, which is the first remedy.
+
+**CO2 recovery.** At rest, only 50 to 80% of labelled bicarbonate appears as
+13CO2 at the mouth (Costill et al., 1973; Wolfe & Jahoor, 1990), because about
+50 mL/min of CO2 exchanges with a large, slow bone pool (Pallikarakis et al.,
+1991a). During exercise at a VO2 of 3 L/min, this exchange is under 2% of
+VCO2, and recovery is practically 100% (Ruzzin et al., 2003; Trimmer et al.,
+2001; pp. 75-76).
+oxidizr therefore applies no recovery correction.
+
+**Delay.** Labelled CO2 passes through the slowly renewed bicarbonate pool, so
+breath enrichment rises with a half-life of 30 to 40 min; about 40 min are
+needed to reach equilibrium (Pallikarakis et al., 1991a). The thesis excludes
+data before 40 min of exercise (p. 77). In oxidizr, use `time_range`, for
+example `analyze_oxidation(study, time_range = c(40, 120))`.
+
+**RER above 1.** In intense exercise or metabolic acidosis, hyperventilation
+releases CO2 from the bicarbonate pool and the RQ at the mouth can exceed 1.0.
+Indirect calorimetry is then not valid (Frayn, 1983; Ferrannini, 1988;
+Jeukendrup & Wallis, 2005; pp. 56-57). oxidizr reports net rates and does
+not truncate them at 0. Above a nonprotein RER of 1, fat oxidation is
+negative: at rest, this estimates net lipogenesis; during exercise, it usually
+signals CO2 that does not come from oxidation (Frayn, 1983).
+`validate_study()` warns above an RER of 1.05 and reports an error above
+1.10.
+
+## Choosing other constants
+
+The defaults are dioleoyl-palmitoyl-glycerol, Kleiber's standard protein
+without sulfur, the molar volume of Livesey & Elia (1988) and the energy
+values of the Institute of Medicine (2005). `oxidation_constants()` builds a set with other documented options for
+the lipid, the molar volume, the protein factors and the energy per gram, and
+prints the source of each choice. For example, the equations of Péronnet &
+Massicotte (1991), also used by Jeukendrup & Wallis (2005):
+
+```{r}
+pm <- oxidation_constants(lipid = "fatty_acid", molar_volume = "real_gas")
+pm
+```
+
+Give a set to `analyze_oxidation(constants = pm)`. `compare_constants()` runs
+the analysis with several sets, and `vignette("uncertainty")` shows how much
+each choice changes the results. See `?oxidation_constants` for every option.
+
+## References
+
+Beckers, E. J., Halliday, D., & Wagenmakers, A. J. (1994). Glucose metabolism and radioactive labeling: what are the real dangers? *Medicine and Science in Sports and Exercise*, 26(11), 1316-1318.
+
+Bergman, B. C., & Brooks, G. A. (1999). Respiratory gas-exchange ratios during graded exercise in fed and fasted trained and untrained men. *Journal of Applied Physiology*, 86(2), 479-487.
+
+Berry, E. M., Hirsch, J., Most, J., McNamara, D. J., & Thornton, J. (1986). The relationship of dietary fat to plasma lipid levels as studied by factor analysis of adipose tissue fatty acid composition in a free-living population of middle-aged American men. *The American Journal of Clinical Nutrition*, 44(2), 220-231.
+
+Björntorp, P., Bergman, H., Varnauskas, E., & Lindholm, B. (1969). Lipid mobilization in relation to body composition in man. *Metabolism: Clinical and Experimental*, 18(10), 840-851.
+
+Burelle, Y., Péronnet, F., Massicotte, D., Brisson, G. R., & Hillaire-Marcel, C. (1997). Oxidation of 13C-glucose and 13C-fructose ingested as a preexercise meal: effect of carbohydrate ingestion during exercise. *International Journal of Sport Nutrition*, 7(2), 117-127.
+
+Costill, D. L., Bennett, A., Branam, G., & Eddy, D. E. (1973). Glucose ingestion at rest and during prolonged exercise. *Journal of Applied Physiology*, 34(6), 764-769.
+
+Elia, M., & Livesey, G. (1992). Energy expenditure and fuel selection in biological systems: the theory and practice of calculations based on indirect calorimetry and tracer methods. *World Review of Nutrition and Dietetics*, 70, 68-131.
+
+Ferrannini, E. (1988). The theoretical bases of indirect calorimetry: a review. *Metabolism: Clinical and Experimental*, 37(3), 287-301.
+
+Frayn, K. N. (1983). Calculation of substrate oxidation rates in vivo from gaseous exchange. *Journal of Applied Physiology*, 55(2), 628-634.
+
+Havel, R. J., Pernow, B., & Jones, N. L. (1967). Uptake and release of free fatty acids and other metabolites in the legs of exercising men. *Journal of Applied Physiology*, 23(1), 90-99.
+
+Institute of Medicine. (2005). *Dietary Reference Intakes for Energy, Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino Acids*. The National Academies Press. https://doi.org/10.17226/10490
+
+Jandrain, B. J., Pirnay, F., Lacroix, M., Mosora, F., Scheen, A. J., & Lefebvre, P. J. (1989). Effect of osmolality on availability of glucose ingested during prolonged exercise in humans. *Journal of Applied Physiology*, 67(1), 76-82.
+
+Jeukendrup, A. E., & Wallis, G. A. (2005). Measurement of substrate oxidation during exercise by means of gas exchange measurements. *International Journal of Sports Medicine*, 26 Suppl 1, S28-37.
+
+Kipp, S., Byrnes, W. C., & Kram, R. (2018). Calculating metabolic energy expenditure across a wide range of exercise intensities: the equation matters. *Applied Physiology, Nutrition, and Metabolism*, 43(6), 639-642.
+
+Kleiber, M. (1961). *The Fire of Life: An Introduction to Animal Energetics*. Wiley.
+
+Lemon, P. W., & Mullin, J. P. (1980). Effect of initial muscle glycogen levels on protein catabolism during exercise. *Journal of Applied Physiology: Respiratory, Environmental and Exercise Physiology*, 48(4), 624-629.
+
+Livesey, G., & Elia, M. (1988). Estimation of energy expenditure, net carbohydrate utilization, and net fat oxidation and synthesis by indirect calorimetry: evaluation of errors with special reference to the detailed composition of fuels. *The American Journal of Clinical Nutrition*, 47(4), 608-628.
+
+Massicotte, D., Péronnet, F., Pitre, C., Adopo, E., Brisson, G. R., & Hillaire-Marcel, C. (1993). Exogenous 13C glucose oxidation during exercise: North American vs Western European studies. *European Journal of Applied Physiology and Occupational Physiology*, 67(5), 402-407.
+
+McCue, M. D., & Welch, K. C., Jr. (2016). 13C-Breath testing in animals: theory, applications, and future directions. *Journal of Comparative Physiology B*, 186(3), 265-285.
+
+Mosora, F., Lacroix, M., Luyckx, A., Pallikarakis, N., Pirnay, F., Krzentowski, G., & Lefèbvre, P. (1981). Glucose oxidation in relation to the size of the oral glucose loading dose. *Metabolism: Clinical and Experimental*, 30(12), 1143-1149.
+
+Mosora, F., Lefebvre, P., Pirnay, F., Lacroix, M., Luyckx, A., & Duchesne, J. (1976). Quantitative evaluation of the oxidation of an exogenous glucose load using naturally labeled 13C-glucose. *Metabolism: Clinical and Experimental*, 25(12), 1575-1582.
+
+Pallikarakis, N., Jandrain, B., Pirnay, F., Mosora, F., Lacroix, M., Luyckx, A. S., & Lefebvre, P. J. (1986). Remarkable metabolic availability of oral glucose during long-duration exercise in humans. *Journal of Applied Physiology*, 60(3), 1035-1042.
+
+Pallikarakis, N., Sphiris, N., & Lefebvre, P. (1991a). Influence of the bicarbonate pool and on the occurrence of 13CO2 in exhaled air. *European Journal of Applied Physiology and Occupational Physiology*, 63(3-4), 179-183.
+
+Péronnet, F., & Massicotte, D. (1991). Table of nonprotein respiratory quotient: an update. *Canadian Journal of Sport Sciences*, 16(1), 23-29.
+
+Péronnet, F., Massicotte, D., Brisson, G., & Hillaire-Marcel, C. (1990). Use of 13C substrates for metabolic studies in exercise: methodological considerations. *Journal of Applied Physiology*, 69(3), 1047-1052.
+
+Romijn, J. A., Coyle, E. F., Hibbert, J., & Wolfe, R. R. (1992). Comparison of indirect calorimetry and a new breath 13C/12C ratio method during strenuous exercise. *The American Journal of Physiology*, 263(1 Pt 1), E64-71.
+
+Ruzzin, J., Péronnet, F., Tremblay, J., Massicotte, D., & Lavoie, C. (2003). Breath [13CO2] recovery from an oral glucose load during exercise: comparison between [U-13C] and [1,2-13C]glucose. *Journal of Applied Physiology*, 95(2), 477-482.
+
+Schoeller, D. A., Klein, P. D., Watkins, J. B., Heim, T., & MacLean, W. C., Jr. (1980). 13C abundances of nutrients and the effect of variations in 13C isotopic abundances of test meals formulated for 13CO2 breath tests. *The American Journal of Clinical Nutrition*, 33(11), 2375-2385.
+
+Tarnopolsky, M. A., Atkinson, S. A., Phillips, S. M., & MacDougall, J. D. (1995). Carbohydrate loading and metabolism during exercise in men and women. *Journal of Applied Physiology*, 78(4), 1360-1368.
+
+Telmosse, E. (2022). *Contribution des glucides exogènes à la fourniture d’énergie lors d’un effort prolongé : analyse par régression multiple* [Mémoire de maîtrise]. Université de Montréal.
+
+Trimmer, J. K., Casazza, G. A., Horning, M. A., & Brooks, G. A. (2001). Recovery of 13CO2 during rest and exercise after [1-13C]acetate, [2-13C]acetate, and NaH13CO3 infusions. *American Journal of Physiology. Endocrinology and Metabolism*, 281(4), E683-E692.
+
+Wolfe, R. R., & Jahoor, F. (1990). Recovery of labeled CO2 during the infusion of C-1- vs C-2-labeled acetate: implications for tracer studies of substrate oxidation. *The American Journal of Clinical Nutrition*, 51(2), 248-252.

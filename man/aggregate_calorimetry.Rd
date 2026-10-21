@@ -19,3 +19,10 @@ A CalorimetryData object with aggregated data
 \description{
 Aggregate calorimetry measurements by subject, time, and optionally protocol.
 }
+\details{
+The result also holds, for each group, the SD and the number of non-missing
+replicates of each gas (\verb{<vo2_col>_sd}, \verb{<vo2_col>_n}, and the same for
+VCO2), the correlation of the VO2 and VCO2 replicates (\code{gas_cor}) and the
+number of rows (\code{n_replicates}). \code{\link[=oxidation_uncertainty]{oxidation_uncertainty()}} uses them for
+the uncertainty of each mean (SD / sqrt(n), with the correlation).
+}

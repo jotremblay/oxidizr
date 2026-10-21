@@ -34,8 +34,11 @@ theme_oxidizr <- function(base_size = 12, base_family = "") {
 #' @param substrate Which substrate(s) to plot: "cho", "fat", "protein", or "all"
 #' @param by Grouping variable for color/linetype (e.g., "protocol")
 #' @param time_col Name of the time column
-#' @param show_error Show error bars (SD or SE)
-#' @param error_type Type of error bars: "sd" or "se"
+#' @param show_error Show error bars
+#' @param error_type Type of error bars: "sd", "se" or "ci" (t-based
+#'   confidence interval). Means and errors are computed across subjects
+#'   with [summarize_oxidation()].
+#' @param level Confidence level when `error_type = "ci"` (default 0.95)
 #' @param dodge_width Width for position_dodge (default: 3)
 #'
 #' @return A ggplot2 object
@@ -45,8 +48,9 @@ plot_oxidation_timecourse <- function(results,
                                        by = NULL,
                                        time_col = "time",
                                        show_error = TRUE,
-                                       error_type = c("sd", "se"),
-                                       dodge_width = 3) {
+                                       error_type = c("sd", "se", "ci"),
+                                       dodge_width = 3,
+                                       level = 0.95) {
 
   substrate <- match.arg(substrate)
   error_type <- match.arg(error_type)
@@ -83,70 +87,24 @@ plot_oxidation_timecourse <- function(results,
     cli::cli_abort("No matching substrate columns found")
   }
 
-  # Prepare data for plotting
-  group_cols <- time_col
-  if (!is.null(by)) group_cols <- c(group_cols, by)
+  # Mean and error across subjects at each time point
+  group_cols <- c(time_col, by)
+  plot_df <- summarize_oxidation(df, vars = plot_cols, by = group_cols,
+                                 level = level, unit = summary_unit(results, df))
 
-  # Calculate summary statistics
-  plot_df <- df |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(group_cols))) |>
-    dplyr::summarise(
-      dplyr::across(
-        dplyr::all_of(plot_cols),
-        list(mean = ~ mean(.x, na.rm = TRUE),
-             sd = ~ sd(.x, na.rm = TRUE),
-             se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))),
-        .names = "{.col}_{.fn}"
-      ),
-      .groups = "drop"
-    )
-
-  # Pivot to long format
-  mean_cols <- paste0(plot_cols, "_mean")
-  error_cols <- paste0(plot_cols, "_", error_type)
-
-  plot_long <- plot_df |>
-    tidyr::pivot_longer(
-      cols = dplyr::all_of(mean_cols),
-      names_to = "substrate",
-      values_to = "rate"
-    ) |>
+  # Long format: one row per time x group x substrate
+  substrate_labels <- c(
+    cho_total = "Total CHO", cho_exo = "Exogenous CHO",
+    cho_endo = "Endogenous CHO", fat_total = "Fat", protein_ox = "Protein"
+  )
+  plot_long <- dplyr::bind_rows(lapply(plot_cols, function(col) {
     dplyr::mutate(
-      substrate = gsub("_mean$", "", .data$substrate),
-      substrate = dplyr::case_when(
-        .data$substrate == "cho_total" ~ "Total CHO",
-        .data$substrate == "cho_exo" ~ "Exogenous CHO",
-        .data$substrate == "cho_endo" ~ "Endogenous CHO",
-        .data$substrate == "fat_total" ~ "Fat",
-        .data$substrate == "protein_ox" ~ "Protein",
-        TRUE ~ .data$substrate
-      )
+      plot_df[group_cols],
+      substrate = substrate_labels[[col]],
+      rate = plot_df[[paste0(col, "_mean")]],
+      error = error_halfwidth(plot_df, col, error_type)
     )
-
-  # Add error values
-  error_long <- plot_df |>
-    tidyr::pivot_longer(
-      cols = dplyr::all_of(error_cols),
-      names_to = "substrate_error",
-      values_to = "error"
-    ) |>
-    dplyr::mutate(
-      substrate = gsub(paste0("_", error_type, "$"), "", .data$substrate_error),
-      substrate = dplyr::case_when(
-        .data$substrate == "cho_total" ~ "Total CHO",
-        .data$substrate == "cho_exo" ~ "Exogenous CHO",
-        .data$substrate == "cho_endo" ~ "Endogenous CHO",
-        .data$substrate == "fat_total" ~ "Fat",
-        .data$substrate == "protein_ox" ~ "Protein",
-        TRUE ~ .data$substrate
-      )
-    ) |>
-    dplyr::select(-"substrate_error")
-
-  # Join mean and error
-  join_cols <- c(group_cols, "substrate")
-  plot_long <- plot_long |>
-    dplyr::left_join(error_long, by = join_cols)
+  }))
 
   # Create plot
   if (!is.null(by)) {
@@ -199,7 +157,7 @@ plot_oxidation_timecourse <- function(results,
 #' @param by Grouping variable for color (e.g., "protocol")
 #' @param time_col Name of the time column
 #' @param show_error Show error bars
-#' @param error_type Type of error bars: "sd" or "se"
+#' @inheritParams plot_oxidation_timecourse
 #'
 #' @return A ggplot2 object
 #' @export
@@ -207,7 +165,8 @@ plot_rer_timecourse <- function(results,
                                  by = NULL,
                                  time_col = "time",
                                  show_error = TRUE,
-                                 error_type = c("sd", "se")) {
+                                 error_type = c("sd", "se", "ci"),
+                                 level = 0.95) {
 
   error_type <- match.arg(error_type)
 
@@ -225,18 +184,9 @@ plot_rer_timecourse <- function(results,
     df[[time_col]] <- as.numeric(as.character(df[[time_col]]))
   }
 
-  group_cols <- time_col
-  if (!is.null(by)) group_cols <- c(group_cols, by)
-
-  plot_df <- df |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(group_cols))) |>
-    dplyr::summarise(
-      rer_mean = mean(.data$rer, na.rm = TRUE),
-      rer_sd = sd(.data$rer, na.rm = TRUE),
-      rer_se = sd(.data$rer, na.rm = TRUE) / sqrt(dplyr::n()),
-      .groups = "drop"
-    ) |>
-    dplyr::mutate(error = .data[[paste0("rer_", error_type)]])
+  plot_df <- summarize_oxidation(df, vars = "rer", by = c(time_col, by),
+                                 level = level, unit = summary_unit(results, df))
+  plot_df$error <- error_halfwidth(plot_df, "rer", error_type)
 
   if (!is.null(by)) {
     p <- ggplot2::ggplot(plot_df,
@@ -276,7 +226,7 @@ plot_rer_timecourse <- function(results,
 #' @param by Grouping variable for color
 #' @param time_col Name of time column
 #' @param show_error Show error bars
-#' @param error_type Type of error bars
+#' @inheritParams plot_oxidation_timecourse
 #'
 #' @return A ggplot2 object
 #' @export
@@ -284,7 +234,8 @@ plot_vo2_timecourse <- function(results,
                                  by = NULL,
                                  time_col = "time",
                                  show_error = TRUE,
-                                 error_type = c("sd", "se")) {
+                                 error_type = c("sd", "se", "ci"),
+                                 level = 0.95) {
 
   error_type <- match.arg(error_type)
 
@@ -303,18 +254,10 @@ plot_vo2_timecourse <- function(results,
     df[[time_col]] <- as.numeric(as.character(df[[time_col]]))
   }
 
-  group_cols <- time_col
-  if (!is.null(by)) group_cols <- c(group_cols, by)
-
-  plot_df <- df |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(group_cols))) |>
-    dplyr::summarise(
-      vo2_mean = mean(.data[[vo2_col]], na.rm = TRUE),
-      vo2_sd = sd(.data[[vo2_col]], na.rm = TRUE),
-      vo2_se = sd(.data[[vo2_col]], na.rm = TRUE) / sqrt(dplyr::n()),
-      .groups = "drop"
-    ) |>
-    dplyr::mutate(error = .data[[paste0("vo2_", error_type)]])
+  plot_df <- summarize_oxidation(df, vars = vo2_col, by = c(time_col, by),
+                                 level = level, unit = summary_unit(results, df))
+  plot_df$vo2_mean <- plot_df[[paste0(vo2_col, "_mean")]]
+  plot_df$error <- error_halfwidth(plot_df, vo2_col, error_type)
 
   if (!is.null(by)) {
     p <- ggplot2::ggplot(plot_df,
@@ -358,13 +301,18 @@ plot_vo2_timecourse <- function(results,
 #' @param by Grouping variable (typically "protocol")
 #' @param partition Show CHO partition (exo/endo) instead of total
 #' @param show_error Show error bars
+#' @inheritParams plot_oxidation_timecourse
 #'
 #' @return A ggplot2 object
 #' @export
 plot_energy_contribution <- function(results,
                                       by = "protocol",
                                       partition = FALSE,
-                                      show_error = TRUE) {
+                                      show_error = TRUE,
+                                      error_type = c("sd", "se", "ci"),
+                                      level = 0.95) {
+
+  error_type <- match.arg(error_type)
 
   if (S7_inherits(results, OxidationResults)) {
     df <- results@energy_contributions
@@ -384,49 +332,17 @@ plot_energy_contribution <- function(results,
 
   available_cols <- intersect(pct_cols, names(df))
 
-  # Calculate summary by group
-  plot_df <- df |>
-    dplyr::group_by(.data[[by]]) |>
-    dplyr::summarise(
-      dplyr::across(
-        dplyr::all_of(available_cols),
-        list(mean = ~ mean(.x, na.rm = TRUE),
-             sd = ~ sd(.x, na.rm = TRUE)),
-        .names = "{.col}_{.fn}"
-      ),
-      .groups = "drop"
-    )
-
-  # Pivot to long format
-  mean_cols <- paste0(available_cols, "_mean")
-  sd_cols <- paste0(available_cols, "_sd")
-
-  plot_long <- plot_df |>
-    tidyr::pivot_longer(
-      cols = dplyr::all_of(mean_cols),
-      names_to = "substrate",
-      values_to = "mean"
-    ) |>
+  # Mean and error across subjects, by group, in long format
+  plot_df <- summarize_oxidation(df, vars = available_cols, by = by,
+                                 level = level, unit = summary_unit(results, df))
+  plot_long <- dplyr::bind_rows(lapply(available_cols, function(col) {
     dplyr::mutate(
-      substrate = gsub("_mean$", "", .data$substrate),
-      substrate = gsub("^pct_", "", .data$substrate)
+      plot_df[by],
+      substrate = sub("^pct_", "", col),
+      mean = plot_df[[paste0(col, "_mean")]],
+      error = error_halfwidth(plot_df, col, error_type)
     )
-
-  # Add SD
-  sd_long <- plot_df |>
-    tidyr::pivot_longer(
-      cols = dplyr::all_of(sd_cols),
-      names_to = "substrate_sd",
-      values_to = "sd"
-    ) |>
-    dplyr::mutate(
-      substrate = gsub("_sd$", "", .data$substrate_sd),
-      substrate = gsub("^pct_", "", .data$substrate)
-    ) |>
-    dplyr::select(-"substrate_sd")
-
-  plot_long <- plot_long |>
-    dplyr::left_join(sd_long, by = c(by, "substrate"))
+  }))
 
   # Set factor order for stacking
   plot_long <- plot_long |>
@@ -459,7 +375,7 @@ plot_energy_contribution <- function(results,
   if (show_error) {
     p <- p +
       ggplot2::geom_errorbar(
-        ggplot2::aes(ymin = .data$cumsum - .data$sd, ymax = .data$cumsum),
+        ggplot2::aes(ymin = .data$cumsum - .data$error, ymax = .data$cumsum),
         width = 0.2
       )
   }

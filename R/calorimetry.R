@@ -141,6 +141,13 @@ normalize_gas_units <- function(calo, to_unit = "L/min") {
 #' @param by Character vector of grouping columns (uses id_col, time_col, protocol_col by default)
 #' @param fun Aggregation function (default: mean)
 #'
+#' @details
+#' The result also holds, for each group, the SD and the number of non-missing
+#' replicates of each gas (`<vo2_col>_sd`, `<vo2_col>_n`, and the same for
+#' VCO2), the correlation of the VO2 and VCO2 replicates (`gas_cor`) and the
+#' number of rows (`n_replicates`). [oxidation_uncertainty()] uses them for
+#' the uncertainty of each mean (SD / sqrt(n), with the correlation).
+#'
 #' @return A CalorimetryData object with aggregated data
 #' @export
 aggregate_calorimetry <- function(calo, by = NULL, fun = mean) {
@@ -166,10 +173,16 @@ aggregate_calorimetry <- function(calo, by = NULL, fun = mean) {
   agg_data <- calo@data |>
     dplyr::group_by(dplyr::across(dplyr::all_of(by))) |>
     dplyr::summarise(
+      # Before across(): it replaces the gas columns by their means
+      gas_cor = replicate_cor(.data[[calo@vo2_col]], .data[[calo@vco2_col]]),
       dplyr::across(
         dplyr::all_of(c(calo@vo2_col, calo@vco2_col)),
-        \(x) fun(x, na.rm = TRUE)
+        list(value = \(x) fun(x, na.rm = TRUE),
+             sd = \(x) stats::sd(x, na.rm = TRUE),
+             n = \(x) sum(!is.na(x))),
+        .names = "{.col}{c(value = '', sd = '_sd', n = '_n')[.fn]}"
       ),
+      n_replicates = dplyr::n(),
       .groups = "drop"
     ) |>
     as.data.frame()
@@ -222,4 +235,11 @@ filter_time_range <- function(calo, time_range) {
     vo2_unit = calo@vo2_unit,
     protocol_col = calo@protocol_col
   )
+}
+
+# Correlation of paired replicates; 0 when fewer than 3 pairs or no variation
+replicate_cor <- function(x, y) {
+  ok <- !is.na(x) & !is.na(y)
+  if (sum(ok) < 3 || stats::sd(x[ok]) == 0 || stats::sd(y[ok]) == 0) return(0)
+  stats::cor(x[ok], y[ok])
 }

@@ -1,0 +1,298 @@
+---
+title: "Uncertainty in Substrate Oxidation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Uncertainty in Substrate Oxidation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Every oxidation rate that oxidizr computes depends on measurements, on
+constants, and on physiological assumptions. This vignette explains each source
+of error, shows how to propagate measurement uncertainty, how to see which
+source matters most, and which statistic to report.
+
+```{r setup, message = FALSE}
+library(oxidizr)
+```
+
+## Three kinds of error
+
+- **Measurement error.** VO2, VCO2, isotope enrichments, urea and body mass
+  are measured with some error. It can be **random** (it differs from one
+  observation to the next) or **systematic** (it shifts every subject in the
+  same direction: an analyser calibration, the enrichment of the drink, the
+  mean background enrichment of a separate control group).
+- **Choice of constants.** The fat equation depends on the lipid chosen as
+  representative, the gas volumes on the molar volume, protein on its formula
+  or general values. These are model choices, not measurement errors
+  (`vignette("stoichiometry")`).
+- **Physiological assumptions.** Steady state, no bicarbonate degassing, no
+  net gluconeogenesis or ketone accumulation. The package explains them but
+  cannot propagate them (see the last sections).
+
+Random errors average out over subjects, and the between-subject SD already
+contains them. Systematic errors do not average out, and no SD, SE or CI across
+subjects shows them, so oxidizr reports them apart (`<var>_u_sys`).
+
+## Why CHO and fat amplify gas errors
+
+CHO and fat oxidation are differences of two large terms in VO2 and VCO2, so a
+small error in one gas gives a large relative error in the rates. Each 1% error
+in VCO2 gives about 3% error in the share of energy from CHO (Elia & Livesey,
+1992, p. 125), and the share of energy from CHO and fat is about 12 times more
+sensitive to errors in the non-protein RQ than energy expenditure is (Livesey &
+Elia, 1988). Correlation between the two gas errors matters as much as their
+size:
+
+```{r}
+k <- stoich_coefficients
+vo2 <- 2.5
+vco2 <- 2.3
+cho <- k$cho_vco2 * vco2 + k$cho_vo2 * vo2
+fat <- k$fat_vo2 * vo2 + k$fat_vco2 * vco2
+
+# Independent 1% errors in VO2 and VCO2 (for example, gas fractions)
+u_cho <- sqrt((k$cho_vco2 * vco2 * 0.01)^2 + (k$cho_vo2 * vo2 * 0.01)^2)
+u_fat <- sqrt((k$fat_vco2 * vco2 * 0.01)^2 + (k$fat_vo2 * vo2 * 0.01)^2)
+round(100 * c(cho = u_cho / cho, fat = u_fat / fat), 1)   # % of each rate
+
+# A 1% error shared by both gases (for example, flow or volume)
+round(100 * c(cho = abs(cho) * 0.01 / cho, fat = abs(fat) * 0.01 / fat), 1)
+```
+
+`oxidation_uncertainty()` therefore has separate sources for each gas (`vo2`,
+`vco2`) and for an error they share (`volume`).
+
+## Typical input uncertainties
+
+These values come from the literature. Use them to choose the uncertainties of
+your own measurements, or better, measure them (replicates, control trials).
+
+| Input | Typical value | Source |
+|---|---|---|
+| VO2, best case | 0.5% | Livesey & Elia (1988), p. 610 |
+| VO2 and VCO2, metabolic carts, between days (CV) | 0.5-3.2% and 0.7-5.0% | Van Hooren et al. (2026) |
+| VO2 and VCO2, error of commercial carts against a simulator | 1-18% | Van Hooren et al. (2023) |
+| Breath δ13C by IRMS | 0.06-0.1‰ | Gautier et al. (1996); Pettersson et al. (2020) |
+| Plasma glucose δ13C by LC/IRMS (SD) | 0.7-0.9‰ | Godin et al. (2011); Morrison et al. (2011) |
+| Drink δ13C (Rexo) near 205-211‰ | 1.0-2.0‰ | Godin et al. (2011) |
+| Resting breath δ13C, SD of rest samples (6 subjects, 3 occasions) | 0.4-0.5‰ | Wagenmakers et al. (1993) |
+| Background breath δ13C, within one subject | 0.21-0.25‰ | Gautier et al. (1996) |
+| Background rise from rest to exercise | 0.2-2‰ | Wagenmakers et al. (1993); Gautier et al. (1996) |
+| Protein oxidation from urinary N | +14 to -39% | Livesey & Elia (1988) |
+| Body mass (scale tolerance) | about 100 g | Cheuvront & Montain (2017) |
+
+## Propagating measurement uncertainty
+
+The example below simulates a crossover study: 8 subjects, a glucose trial
+(Rexo 75‰) and a water trial, two time points, three replicate measurements of
+VO2 and VCO2 at each.
+
+```{r}
+set.seed(1)
+ids <- 1:8
+prots <- c("Glucose", "Water")
+calo <- expand.grid(id = ids, protocol = prots, time = c(60, 90), rep = 1:3,
+                    stringsAsFactors = FALSE)
+calo$vo2 <- 2.5 + rnorm(nrow(calo), 0, 0.05)
+calo$vco2 <- 2.3 + rnorm(nrow(calo), 0, 0.05)
+calo$rep <- NULL
+
+rexp <- expand.grid(id = ids, protocol = prots, time = c(60, 90), stringsAsFactors = FALSE)
+background <- rnorm(8, -24, 0.5)
+rexp$rexp <- background[rexp$id] + ifelse(rexp$protocol == "Water", 0.3, 9)
+
+study <- OxidationStudy(
+  calorimetry = CalorimetryData(data = calo, protocol_col = "protocol"),
+  isotopes = IsotopeData(rexp = rexp, rexo = data.frame(protocol = prots, rexo = c(75, NA)),
+                         protocol_col = "protocol", rpla = NULL),
+  urea = NULL, environment = NULL, subjects = NULL
+)
+```
+
+By default, `analyze_oxidation()` propagates only what the data show: with
+`aggregate = TRUE`, the SD of the replicates of each mean (SD / sqrt(n)); with
+13C data, the SD of the background enrichment in the control trials. Here we
+also state an analysis precision of 0.1‰ for Rexp and 0.2‰ for Rexo:
+
+```{r}
+u <- oxidation_uncertainty(rexp = 0.1, rexo = 0.2)
+u
+
+res <- analyze_oxidation(study, aggregate = TRUE, control_protocol = "Water",
+                         validate = FALSE, uncertainty = u)
+glucose <- res@oxidation_rates$protocol == "Glucose"
+head(res@oxidation_rates[glucose, c("id", "time", "cho_total", "cho_total_u",
+                                    "cho_exo", "cho_exo_u", "cho_exo_u_sys")])
+```
+
+Each variable has `<var>_u`, its standard uncertainty, and `<var>_u_sys`, the
+part that is systematic. The default method is first order (GUM): each source
+moves its input by one standard uncertainty, the calculations run again, and the
+change is the contribution of that source. It is exact for the linear CHO and
+fat equations.
+
+## Which source matters most
+
+`uncertainty_budget()` ranks the sources of one variable:
+
+```{r}
+uncertainty_budget(res, "cho_exo", by = "protocol")
+```
+
+For exogenous CHO, the background enrichment dominates: every subject gets the
+control-group mean Rref, but their own background differs from it. How this
+error behaves depends on the design:
+
+- **Crossover** (each subject also did the control trial, as here): the mean
+  contains the subject's own background, so the error is SD × sqrt(1 - 1/n),
+  random (`rref_subject`), and nothing is shared across subjects.
+- **Parallel groups** (the control trials come from other subjects): the error
+  is SD, random (`rref_subject`), plus the uncertainty of the group mean,
+  SD / sqrt(n), which shifts every subject in the same direction
+  (`rref_mean`, systematic).
+
+In a crossover study, take each subject's Rref from their own control trial
+(`rref_by_subject = TRUE`). The between-subject spread then leaves the error;
+what is left is the within-subject variation of the background, about 0.25‰
+(Gautier et al., 1996):
+
+```{r}
+own <- analyze_oxidation(study, aggregate = TRUE, control_protocol = "Water",
+                         validate = FALSE, rref_by_subject = TRUE,
+                         uncertainty = oxidation_uncertainty(rexp = 0.1, rexo = 0.2,
+                                                             rref = 0.25))
+c(group_rref = mean(res@oxidation_rates$cho_exo_u[glucose]),
+  own_rref = mean(own@oxidation_rates$cho_exo_u[glucose]))
+```
+
+When a result is not linear in its inputs (for example exogenous CHO when
+Rexo - Rref is small, or rates near 0, where they are cut at 0), check the first
+order result with Monte Carlo propagation (GUM Supplement 1):
+
+```{r}
+set.seed(2)
+mc <- analyze_oxidation(study, aggregate = TRUE, control_protocol = "Water",
+                        validate = FALSE,
+                        uncertainty = oxidation_uncertainty(rexp = 0.1, rexo = 0.2,
+                                                            method = "monte_carlo",
+                                                            n_draws = 200))
+c(linear = mean(res@oxidation_rates$cho_exo_u[glucose]),
+  monte_carlo = mean(mc@oxidation_rates$cho_exo_u[glucose]))
+```
+
+## Choosing constants
+
+The constants are a model choice. `compare_constants()` runs the analysis with
+the defaults, then with each other option of each part, one at a time:
+
+```{r}
+cmp <- compare_constants(study, vars = c("cho_total", "fat_total"),
+                         aggregate = TRUE, control_protocol = "Water")
+cmp[c("set", "cho_total_mean", "fat_total_mean")]
+```
+
+The molar volume moves the results most: with the real-gas volumes of Péronnet &
+Massicotte (1991), glucose has an RQ of 0.996. Across published equations, CHO
+oxidation varies by up to 6% (Jeukendrup & Wallis, 2005, Table 3) and fat
+energy by up to 17% (Elia & Livesey, 1992, Table 19). This spread is not added
+to the propagated uncertainty: report it apart, or state the constants you used
+(`res@constants`). See `?oxidation_constants` for each option and its source.
+
+## Exogenous glucose: the 13C assumptions
+
+- **Background rise.** The background enrichment of expired CO2 rises during
+  exercise: by 0.83‰ at 60% and 0.99‰ at 75% VO2max in European subjects
+  (Gautier et al., 1996). In Dutch subjects who avoided foods from C4 plants,
+  the rise did not exceed 0.3‰, against 1-2‰ in North American studies
+  (Wagenmakers et al., 1993). With natural enrichment, exogenous oxidation was
+  overestimated by 37-53% with a resting background and by about 35% with an
+  exercise water trial as background (Massicotte et al., 1993);
+  Péronnet et al. (1990) found 10-20% with an exercise water trial. Take Rref
+  from a control trial during exercise, and prefer a high enrichment of the
+  drink, which makes the background change negligible.
+- **CO2 recovery.** During exercise, recovery of labelled CO2 is practically
+  complete (Telmosse, 2022, pp. 75-76), so oxidizr applies no correction.
+- **Equilibration delay.** Labelled CO2 passes through the bicarbonate pool.
+  Estimates of the time to equilibrium range from 25 min (Gonzalez & King,
+  2023) to 60 min (Moseley et al., 2005); Telmosse (2022, p. 77) excludes data
+  before 40 min. Use `time_range` to exclude early data.
+
+## Assumptions the package cannot propagate
+
+- **Steady state.** Indirect calorimetry needs a steady state; use
+  `detect_steady_state()` and `filter_steady_state()`.
+- **RER above 1.** Hyperventilation or acidosis releases CO2 from the
+  bicarbonate pool; indirect calorimetry is then not valid (Telmosse, 2022,
+  pp. 56-57). oxidizr sets negative rates to 0, and `validate_study()` flags
+  high RER.
+- **Protein from nitrogen.** General factors can be wrong by +14 to -39%
+  (Livesey & Elia, 1988); a change in the urea pool hides urea (Elia &
+  Livesey, 1992, p. 94). State a `protein` uncertainty if protein matters.
+- **Other.** Skin CO2 loss (1-2% of CO2 output), ketone accumulation and
+  colonic fermentation also bias the RQ (Livesey & Elia, 1988, Appendix).
+
+## Which statistic to report
+
+| Statistic | What it describes | In oxidizr |
+|---|---|---|
+| SD | How subjects differ | `error = "sd"` |
+| SE = SD / sqrt(n) | Precision of the group mean | `error = "se"` |
+| CI (t, n - 1 df) | Range for the group mean, at `level` | `error = "ci"` |
+| `<var>_u` | Uncertainty of one subject's value from the inputs | `analyze_oxidation(uncertainty = )` |
+| `<var>_u_sys` | Error shared by all subjects (calibration, drink enrichment, a separate control group's mean Rref) | reported apart in summaries |
+
+Summaries use the subject as the unit: each subject's rows are averaged first,
+so n counts subjects, not observations. Do not add `<var>_u` to the SE of a
+group mean: the random part is already in the between-subject SD. Report the
+systematic part apart:
+
+```{r}
+summarize_oxidation(res@oxidation_rates[glucose, ], vars = "cho_exo", level = 0.95)
+tbl_oxidation_summary(res, by = "protocol", error = "ci")
+```
+
+## References
+
+Cheuvront, S. N., & Montain, S. J. (2017). Myths and methodologies: making sense of exercise mass and water balance. *Experimental Physiology*, 102(9), 1047-1053. https://doi.org/10.1113/EP086284
+
+Elia, M., & Livesey, G. (1992). Energy expenditure and fuel selection in biological systems: the theory and practice of calculations based on indirect calorimetry and tracer methods. *World Review of Nutrition and Dietetics*, 70, 68-131.
+
+Gautier, J. F., Pirnay, F., Lacroix, M., Mosora, F., Scheen, A. J., Cathelineau, G., & Lefèbvre, P. J. (1996). Changes in breath 13CO2/12CO2 during exercise of different intensities. *Journal of Applied Physiology*, 81(3), 1096-1102.
+
+Godin, J. P., Stellingwerff, T., Actis-Goretta, L., Mermoud, A. F., Kochhar, S., & Rezzi, S. (2011). The role of liquid chromatography and flow injection analyses coupled to isotope ratio mass spectrometry for studying human in vivo glucose metabolism. *Rapid Communications in Mass Spectrometry*, 25(20), 2989-2994. https://doi.org/10.1002/rcm.5179
+
+Gonzalez, J. T., & King, A. J. (2023). For flux sake: isotopic tracer methods of monitoring human carbohydrate metabolism during exercise. *International Journal of Sport Nutrition and Exercise Metabolism*, 33(1), 60-70.
+
+Jeukendrup, A. E., & Wallis, G. A. (2005). Measurement of substrate oxidation during exercise by means of gas exchange measurements. *International Journal of Sports Medicine*, 26 Suppl 1, S28-S37.
+
+Joint Committee for Guides in Metrology. (2008). *Evaluation of measurement data: Guide to the expression of uncertainty in measurement* (JCGM 100:2008).
+
+Joint Committee for Guides in Metrology. (2008). *Evaluation of measurement data: Supplement 1 to the "Guide to the expression of uncertainty in measurement", propagation of distributions using a Monte Carlo method* (JCGM 101:2008).
+
+Livesey, G., & Elia, M. (1988). Estimation of energy expenditure, net carbohydrate utilization, and net fat oxidation and synthesis by indirect calorimetry: evaluation of errors with special reference to the detailed composition of fuels. *The American Journal of Clinical Nutrition*, 47(4), 608-628.
+
+Massicotte, D., Péronnet, F., Pitre, C., Adopo, E., Brisson, G. R., & Hillaire-Marcel, C. (1993). Exogenous 13C glucose oxidation during exercise: North American vs Western European studies. *European Journal of Applied Physiology and Occupational Physiology*, 67(5), 402-407.
+
+Morrison, D. J., O'Hara, J. P., King, R. F. G. J., & Preston, T. (2011). Quantitation of plasma 13C-galactose and 13C-glucose during exercise by liquid chromatography/isotope ratio mass spectrometry. *Rapid Communications in Mass Spectrometry*, 25(17), 2484-2488. https://doi.org/10.1002/rcm.5139
+
+Moseley, L., Jentjens, R. L. P. G., Waring, R. H., Harris, R. M., Harding, L. K., & Jeukendrup, A. E. (2005). Measurement of exogenous carbohydrate oxidation: a comparison of [U-14C]glucose and [U-13C]glucose tracers. *American Journal of Physiology. Endocrinology and Metabolism*, 289(2), E206-E211.
+
+Péronnet, F., & Massicotte, D. (1991). Table of nonprotein respiratory quotient: an update. *Canadian Journal of Sport Sciences*, 16(1), 23-29.
+
+Péronnet, F., Massicotte, D., Brisson, G., & Hillaire-Marcel, C. (1990). Use of 13C substrates for metabolic studies in exercise: methodological considerations. *Journal of Applied Physiology*, 69(3), 1047-1052.
+
+Pettersson, S., Ahnoff, M., Edin, F., Lingström, P., Simark Mattsson, C., & Andersson-Hall, U. (2020). A hydrogel drink with high fructose content generates higher exogenous carbohydrate oxidation and a reduced drop in dental biofilm pH compared to two other, commercially available, carbohydrate sports drinks. *Frontiers in Nutrition*, 7, 88. https://doi.org/10.3389/fnut.2020.00088
+
+Telmosse, E. (2022). *Contribution des glucides exogènes à la fourniture d’énergie lors d’un effort prolongé : analyse par régression multiple* [Mémoire de maîtrise]. Université de Montréal.
+
+Van Hooren, B., Souren, T., & Bongers, B. C. (2023). Accuracy of respiratory gas variables, substrate, and energy use from 15 CPET systems during simulated and human exercise. *Scandinavian Journal of Medicine & Science in Sports*. https://doi.org/10.1111/sms.14490
+
+Van Hooren, B., Souren, T., Miqueu, F., & Bongers, B. C. (2026). Technological and biological reliability, and validity of five different CPET systems during simulated and human exercise. *Scandinavian Journal of Medicine & Science in Sports*, 36(1), e70184. https://doi.org/10.1111/sms.70184
+
+Wagenmakers, A. J. M., Rehrer, N. J., Brouns, F., Saris, W. H. M., & Halliday, D. (1993). Breath 13CO2 background enrichment during exercise: diet-related differences between Europe and America. *Journal of Applied Physiology*, 74(5), 2353-2357.

@@ -54,38 +54,51 @@ has_energy <- !is.null(results@energy_contributions)
 
 ```{r methods, eval=params$include_methods}
 #| results: asis
+# The constants this analysis used (older results: the package defaults)
+k <- if (length(results@constants)) results@constants else oxidizr::oxidation_constants()
+e <- if (!is.null(k$energy)) k$energy else oxidizr::energy_factors
+opts <- oxidizr:::constant_options
+chosen <- if (!is.null(k$choices)) {
+  vapply(names(k$choices), function(p) {
+    o <- opts[[p]][[k$choices[[p]]]]
+    paste0(o$label, " (", o$source, ")")
+  }, character(1))
+} else {
+  c(lipid = "TAG-type C53.4H99.2O6 (Telmosse, 2022)", molar_volume = "22.414 L/mol (Livesey & Elia, 1988)")
+}
+f4 <- function(x) formatC(x, format = "f", digits = 4)
 cat("
 ## Methods
 
 ### Indirect Calorimetry
 
-Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~) using stoichiometric equations (Livesey & Elia, 1988), with coefficients parameterized as presented in Telmosse (2022), derived from Institute of Medicine (2005) data:
+Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~). The coefficients solve the balanced oxidation reactions of glucose and of the lipid ", chosen[["lipid"]], ", with a molar volume of ", chosen[["molar_volume"]], ":
 
-- **CHO oxidation** (g/min) = 4.618 × VCO~2~ - 3.279 × VO~2~
-- **Fat oxidation** (g/min) = -1.712 × VCO~2~ + 1.712 × VO~2~
+- **CHO oxidation** (g/min) = ", f4(k$cho_vco2), " × VCO~2~ - ", f4(-k$cho_vo2), " × VO~2~
+- **Fat oxidation** (g/min) = ", f4(k$fat_vo2), " × VO~2~ - ", f4(-k$fat_vco2), " × VCO~2~
 
 ### Energy Contributions
 
-Energy yield was calculated using factors from Institute of Medicine (2005):
+Energy yield was calculated with these energy values per gram", if (!is.null(k$choices)) paste0(" (", chosen[["energy"]], ")") else "", ":
 
-- Carbohydrate: 3.72 kcal/g
-- Fat: 9.44 kcal/g
-- Protein: 4.70 kcal/g
-")
+- Carbohydrate: ", e$cho, " kcal/g
+- Fat: ", e$fat, " kcal/g
+- Protein: ", formatC(e$protein, format = "f", digits = 2), " kcal/g
+", sep = "")
 
 if (has_isotopes) {
   cat("
 ### Isotope Tracer Analysis
 
-Exogenous carbohydrate oxidation was determined using ^13^C isotope enrichment, with the CO2/CHO conversion ratio (0.747 L CO2 per gram CHO oxidized) based on Péronnet & Massicotte (1991) and presented in Telmosse (2022):
+Exogenous carbohydrate oxidation was determined using ^13^C isotope enrichment and the equation of Mosora et al. (1976) and Péronnet et al. (1990), with k = ", f4(k$co2_cho_ratio), " L CO~2~ produced per g of glucose oxidized:
 
-CHO~exo~ = VCO~2~ × ((R~exp~ - R~ref~) / (R~exo~ - R~ref~)) / 0.747
+CHO~exo~ = VCO~2~ × ((R~exp~ - R~ref~) / (R~exo~ - R~ref~)) / ", f4(k$co2_cho_ratio), "
 
 Where:
 - R~exp~ = ^13^C enrichment of expired CO~2~
-- R~ref~ = baseline enrichment (from control condition)
+- R~ref~ = background enrichment (from the control condition)
 - R~exo~ = ^13^C enrichment of ingested substrate
-")
+", sep = "")
 }
 ```
 

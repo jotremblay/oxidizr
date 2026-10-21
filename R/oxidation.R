@@ -22,16 +22,26 @@ NULL
 #' @export
 #'
 #' @details
-#' Uses equations commonly attributed to Jequier et al. and Frayn,
-#' with specific coefficients parameterized as presented in Telmosse (2022):
+#' The coefficients come from [stoich_coefficients], which solves the
+#' balanced oxidation reactions of glucose and dioleoyl-palmitoyl-glycerol
+#' (see `vignette("stoichiometry")`). With the default coefficients:
 #'
-#' Non-protein calculations:
-#' - VO2np = VO2 - (protein_ox * 1.0075)
-#' - VCO2np = VCO2 - (protein_ox * 0.8443)
+#' Non-protein gas exchange:
+#' - VO2np = VO2 - protein_ox * 1.0443
+#' - VCO2np = VCO2 - protein_ox * 0.8715
 #'
 #' Substrate oxidation:
-#' - CHO (g/min) = 4.618 * VCO2np - 3.279 * VO2np
-#' - Fat (g/min) = -1.712 * VCO2np + 1.712 * VO2np
+#' - CHO (g/min) = 4.6143 * VCO2np - 3.2746 * VO2np
+#' - Fat (g/min) = 1.7041 * VO2np - 1.7041 * VCO2np
+#'
+#' The rates are net rates and are not truncated at zero. A negative fat
+#' oxidation (nonprotein RER above 1) estimates net lipogenesis, and a negative
+#' CHO oxidation (nonprotein RER below the RQ of fat) estimates net
+#' gluconeogenesis or a measurement problem (Frayn, 1983).
+#'
+#' If `protein_ox` is a data frame, it is joined by the ID column, and also by
+#' the protocol column when both tables have it. Each calorimetry row must
+#' match at most one protein row.
 #'
 #' ## NA Handling Strategies
 #'
@@ -97,12 +107,16 @@ calc_substrate_oxidation <- function(calo,
       if (!"protein_ox" %in% names(protein_ox)) {
         cli::cli_abort("protein_ox must contain 'protein_ox' column")
       }
-      # Join protein data
+      # Join protein data on ID, plus protocol when both tables have it
+      by <- c(id_col, intersect(protocol_col, names(protein_ox)))
       result <- result |>
         dplyr::left_join(
-          protein_ox |> dplyr::select(dplyr::all_of(c(id_col, "protein_ox"))),
-          by = id_col
+          protein_ox |> dplyr::select(dplyr::all_of(c(by, "protein_ox"))),
+          by = by,
+          relationship = "many-to-one"
         )
+      # Keep the calorimetry protocol column (a join can change its type)
+      if (length(by) > 1) result[[protocol_col]] <- calo_df[[protocol_col]]
     } else if (is.numeric(protein_ox)) {
       result <- result |>
         dplyr::mutate(protein_ox = protein_ox)
@@ -173,13 +187,6 @@ calc_substrate_oxidation <- function(calo,
   result <- result |>
     dplyr::select(dplyr::all_of(out_cols))
 
-  # Ensure non-negative oxidation rates
-  result <- result |>
-    dplyr::mutate(
-      cho_total = pmax(.data$cho_total, 0),
-      fat_total = pmax(.data$fat_total, 0)
-    )
-
   tibble::as_tibble(result)
 }
 
@@ -192,6 +199,9 @@ calc_substrate_oxidation <- function(calo,
 #' @param cho_pla Plasma CHO oxidation from calc_plasma_cho (optional)
 #' @param id_col Name of the ID column (auto-detected if NULL)
 #' @param time_col Name of the time column (auto-detected if NULL)
+#' @param protocol_col Name of the protocol column (default: "protocol").
+#'   When all inputs have it, it is part of the join keys, so that each
+#'   protocol of a crossover study keeps its own values.
 #'
 #' @return A tibble with partitioned CHO oxidation rates
 #' @export
@@ -210,7 +220,8 @@ calc_cho_partition <- function(substrate_ox,
                                cho_exo,
                                cho_pla = NULL,
                                id_col = NULL,
-                               time_col = NULL) {
+                               time_col = NULL,
+                               protocol_col = "protocol") {
 
   # Identify common columns between inputs
   common_cols <- intersect(names(substrate_ox), names(cho_exo))
@@ -253,31 +264,31 @@ calc_cho_partition <- function(substrate_ox,
   }
 
   # Join substrate and exogenous data
+  keys <- c(id_col, time_col, intersect(protocol_col, common_cols))
   result <- substrate_ox |>
     dplyr::left_join(
-      cho_exo |> dplyr::select(dplyr::all_of(c(id_col, time_col, "cho_exo"))),
-      by = c(id_col, time_col)
+      cho_exo |> dplyr::select(dplyr::all_of(c(keys, "cho_exo"))),
+      by = keys,
+      relationship = "many-to-one"
     )
 
   # Calculate endogenous CHO
   result <- result |>
     dplyr::mutate(
-      cho_endo = .data$cho_total - .data$cho_exo,
-      cho_endo = pmax(.data$cho_endo, 0)  # Ensure non-negative
+      cho_endo = .data$cho_total - .data$cho_exo
     )
 
   # If plasma CHO available, calculate muscle and liver
   if (!is.null(cho_pla)) {
     result <- result |>
       dplyr::left_join(
-        cho_pla |> dplyr::select(dplyr::all_of(c(id_col, time_col, "cho_pla"))),
-        by = c(id_col, time_col)
+        cho_pla |> dplyr::select(dplyr::all_of(c(intersect(keys, names(cho_pla)), "cho_pla"))),
+        by = intersect(keys, names(cho_pla)),
+        relationship = "many-to-one"
       ) |>
       dplyr::mutate(
         cho_mus = .data$cho_total - .data$cho_pla,
-        cho_liv = .data$cho_pla - .data$cho_exo,
-        cho_mus = pmax(.data$cho_mus, 0),
-        cho_liv = pmax(.data$cho_liv, 0)
+        cho_liv = .data$cho_pla - .data$cho_exo
       )
   }
 
@@ -337,7 +348,9 @@ oxidation_study <- function(calorimetry,
 #'
 #' @param study An OxidationStudy object
 #' @param time_range Optional time range to filter (vector of 2)
-#' @param aggregate Logical, aggregate by time point (default: FALSE)
+#' @param aggregate Logical, aggregate by time point (default: FALSE). The
+#'   aggregated data keep the SD and number of replicates, which give the
+#'   data-based uncertainty of VO2 and VCO2.
 #' @param calc_energy Logical, calculate energy contributions (default: TRUE)
 #' @param control_protocol Name of control protocol for Rref (required if isotopes present)
 #' @param validate Logical, whether to validate data before analysis (default: TRUE)
@@ -345,8 +358,22 @@ oxidation_study <- function(calorimetry,
 #'   If FALSE (default), warnings are issued but analysis continues.
 #'   If TRUE, analysis stops if validation errors are found.
 #' @param validation_thresholds Optional custom thresholds list (see calorimetry_thresholds)
+#' @param exercise_duration Exercise duration in minutes, used for the sweat
+#'   loss and the protein oxidation rate (default: 120)
+#' @param constants The constants of the calculations, from
+#'   [oxidation_constants()] (default: the oxidizr defaults).
+#' @param uncertainty The input uncertainties to propagate, from
+#'   [oxidation_uncertainty()]. The default propagates only what the data
+#'   show (replicate SDs, control-group SD of Rref). Use NULL for no
+#'   propagation.
+#' @param rref_by_subject Logical, take Rref from each subject's own control
+#'   trial (crossover studies; see [calc_rref()]). Default: FALSE.
 #'
-#' @return An OxidationResults S7 object
+#' @return An OxidationResults S7 object. When an uncertainty was propagated,
+#'   `oxidation_rates` and `energy_contributions` have, for each variable,
+#'   `<var>_u` (standard uncertainty) and `<var>_u_sys` (its systematic part),
+#'   and the `uncertainty` slot holds every contribution (see
+#'   [uncertainty_budget()]).
 #' @export
 #'
 #' @examples
@@ -361,8 +388,12 @@ oxidation_study <- function(calorimetry,
 #' # With strict validation
 #' results <- analyze_oxidation(study, validate = TRUE, strict = TRUE)
 #'
-#' # Skip validation
-#' results <- analyze_oxidation(study, validate = FALSE)
+#' # Other constants, and stated measurement uncertainties
+#' results <- analyze_oxidation(
+#'   study,
+#'   constants = oxidation_constants(molar_volume = "real_gas"),
+#'   uncertainty = oxidation_uncertainty(vo2 = 0.01, vco2 = 0.01, rexp = 0.1)
+#' )
 #' }
 analyze_oxidation <- function(study,
                               time_range = NULL,
@@ -371,10 +402,17 @@ analyze_oxidation <- function(study,
                               control_protocol = NULL,
                               validate = TRUE,
                               strict = FALSE,
-                              validation_thresholds = NULL) {
+                              validation_thresholds = NULL,
+                              exercise_duration = 120,
+                              constants = oxidation_constants(),
+                              uncertainty = oxidation_uncertainty(),
+                              rref_by_subject = FALSE) {
 
   if (!S7_inherits(study, OxidationStudy)) {
     cli::cli_abort("study must be an OxidationStudy object")
+  }
+  if (!is.null(uncertainty) && !inherits(uncertainty, "oxidation_uncertainty")) {
+    cli::cli_abort("{.arg uncertainty} must come from {.fn oxidation_uncertainty} or be NULL.")
   }
 
   cli::cli_h1("Analyzing Oxidation")
@@ -411,78 +449,51 @@ analyze_oxidation <- function(study,
     }
   }
 
-  # Extract calorimetry data
+  # Filter and aggregate the calorimetry data used by every step
   calo <- study@calorimetry
-
-  # Filter time range if specified
   if (!is.null(time_range)) {
     cli::cli_alert_info("Filtering to time range: {time_range[1]} - {time_range[2]}")
     calo <- filter_time_range(calo, time_range)
   }
-
-  # Aggregate if requested
   if (aggregate) {
     cli::cli_alert_info("Aggregating calorimetry data")
     calo <- aggregate_calorimetry(calo)
   }
+  used <- study
+  used@calorimetry <- calo
 
-  # Calculate protein oxidation if urea and environment data available
-  protein_ox <- NULL
-  if (!is.null(study@urea) && !is.null(study@environment) && !is.null(study@subjects)) {
-    cli::cli_alert_info("Calculating protein oxidation from urea")
-
-    sweat_loss <- calc_sweat_loss(
-      subjects = study@subjects,
-      calo = calo,
-      environment = study@environment
-    )
-
-    urea_loss <- calc_urea_loss(
-      urea = study@urea,
-      sweat_loss = sweat_loss,
-      subjects = study@subjects
-    )
-
-    protein_ox <- calc_protein_oxidation(urea_loss, id_col = study@urea@id_col)
-  }
-
-  # Calculate substrate oxidation
+  if (has_protein_data(used)) cli::cli_alert_info("Calculating protein oxidation from urea")
   cli::cli_alert_info("Calculating substrate oxidation")
-  substrate_ox <- calc_substrate_oxidation(calo, protein_ox = protein_ox)
-
-  # Calculate CHO partitioning if isotope data available
-  partition <- NULL
-  if (!is.null(study@isotopes)) {
+  if (!is.null(used@isotopes)) {
     if (is.null(control_protocol)) {
       cli::cli_warn("control_protocol not specified - skipping isotope calculations")
     } else {
       cli::cli_alert_info("Calculating exogenous CHO oxidation")
+    }
+  }
+  if (calc_energy) cli::cli_alert_info("Calculating energy contributions")
 
-      # Calculate Rref
-      rref <- calc_rref(study@isotopes, control_protocol = control_protocol)
-
-      # Calculate exogenous CHO
-      cho_exo <- calc_exogenous_cho(calo, study@isotopes, rref)
-
-      # Calculate plasma CHO if available
-      cho_pla <- NULL
-      if (!is.null(study@isotopes@rpla)) {
-        cli::cli_alert_info("Calculating plasma CHO oxidation")
-        cho_pla <- calc_plasma_cho(calo, study@isotopes, rref)
-      }
-
-      # Partition CHO sources
-      partition <- calc_cho_partition(substrate_ox, cho_exo, cho_pla)
-      substrate_ox <- partition
+  run <- function(study, rref_fn = identity) {
+    run_pipeline(study, constants, control_protocol, exercise_duration,
+                 rref_by_subject, calc_energy, rref_fn)
+  }
+  out <- run(used)
+  if (rref_by_subject && !is.null(out$rref) && !is.null(calo@protocol_col)) {
+    no_rref <- out$oxidation[[calo@id_col]][is.na(out$oxidation$cho_exo) &
+                                              out$oxidation[[calo@protocol_col]] != control_protocol]
+    if (length(no_rref) > 0) {
+      cli::cli_warn(c(
+        "No own control value for subject{?s} {.val {unique(no_rref)}} at some time points.",
+        "i" = "Their exogenous CHO is NA. Use {.code rref_by_subject = FALSE} for the group Rref."
+      ))
     }
   }
 
-  # Calculate energy contributions
-  energy <- NULL
-  if (calc_energy) {
-    cli::cli_alert_info("Calculating energy contributions")
-    energy <- calc_energy_yield(substrate_ox)
-    energy <- calc_energy_percent(energy)
+  # Propagate the input uncertainties
+  unc <- NULL
+  if (!is.null(uncertainty)) {
+    unc <- propagate_uncertainty(used, uncertainty, out, run, control_protocol, rref_by_subject)
+    if (!is.null(unc)) out <- add_uncertainty_columns(out, unc)
   }
 
   # Store settings
@@ -492,7 +503,10 @@ analyze_oxidation <- function(study,
     control_protocol = control_protocol,
     calc_energy = calc_energy,
     validate = validate,
-    strict = strict
+    strict = strict,
+    exercise_duration = exercise_duration,
+    rref_by_subject = rref_by_subject,
+    uncertainty = uncertainty
   )
 
   # Add validation result to settings if available
@@ -503,10 +517,102 @@ analyze_oxidation <- function(study,
   cli::cli_alert_success("Analysis complete")
 
   OxidationResults(
-    oxidation_rates = as.data.frame(substrate_ox),
-    energy_contributions = if (!is.null(energy)) as.data.frame(energy) else NULL,
-    partition = if (!is.null(partition)) as.data.frame(partition) else NULL,
+    oxidation_rates = as.data.frame(out$oxidation),
+    energy_contributions = if (!is.null(out$energy)) as.data.frame(out$energy) else NULL,
+    partition = if (!is.null(out$partition)) as.data.frame(out$partition) else NULL,
     study = study,
-    settings = settings
+    settings = settings,
+    constants = constants,
+    uncertainty = unc
   )
+}
+
+# TRUE when the study has what the protein (urea) path needs
+has_protein_data <- function(study) {
+  !is.null(study@urea) && !is.null(study@environment) && !is.null(study@subjects)
+}
+
+# The calculation steps of analyze_oxidation(), with no messages. The
+# uncertainty code runs it again on changed inputs. `rref_fn` changes the
+# Rref table (from calc_rref()) before it is used.
+run_pipeline <- function(study, constants, control_protocol, exercise_duration,
+                         rref_by_subject = FALSE, calc_energy = TRUE,
+                         rref_fn = identity) {
+  calo <- study@calorimetry
+  # A plain coefficient list (as stoich_coefficients) has no energy part
+  energy_k <- constants$energy %||% energy_factors
+  co2_k <- constants$co2_cho_ratio %||% stoich_coefficients$co2_cho_ratio
+
+  # Protein oxidation from urea
+  protein_ox <- NULL
+  if (has_protein_data(study)) {
+    # When the urine volume is only in the urea data, use it in the sweat
+    # mass balance too, so that the urine is not counted as sweat
+    subjects <- study@subjects
+    urine_col <- subjects@fluid_cols$urine
+    urea <- study@urea
+    if (!is.null(urine_col) && !urine_col %in% names(subjects@data) &&
+        urea@urine_vol_col %in% names(urea@data)) {
+      proto <- intersect(subjects@protocol_col, intersect(names(subjects@data), names(urea@data)))
+      urine <- urea@data[, c(urea@id_col, proto, urea@urine_vol_col), drop = FALSE]
+      names(urine) <- c(subjects@id_col, proto, urine_col)
+      subjects@data <- dplyr::left_join(subjects@data, urine,
+                                        by = c(subjects@id_col, proto),
+                                        relationship = "many-to-one")
+    }
+
+    sweat_loss <- calc_sweat_loss(
+      subjects = subjects,
+      calo = calo,
+      environment = study@environment,
+      exercise_duration = exercise_duration
+    )
+    urea_loss <- calc_urea_loss(urea = urea, sweat_loss = sweat_loss, subjects = subjects)
+    protein_ox <- calc_protein_oxidation(
+      urea_loss,
+      exercise_duration = exercise_duration,
+      conversion_factor = constants$protein_urea %||% stoich_coefficients$protein_urea,
+      id_col = urea@id_col,
+      protocol_col = study@subjects@protocol_col
+    )
+  }
+
+  substrate_ox <- calc_substrate_oxidation(calo, protein_ox = protein_ox, coefficients = constants)
+
+  # CHO partitioning from the 13C data
+  partition <- NULL
+  rref <- NULL
+  if (!is.null(study@isotopes) && !is.null(control_protocol)) {
+    keys <- intersect(c(calo@id_col, calo@time_col, calo@protocol_col), names(calo@data))
+    if (anyDuplicated(calo@data[keys]) > 0) {
+      cli::cli_abort(c(
+        "The calorimetry data have several rows for one subject, protocol and time.",
+        "i" = "The 13C calculations need one row each: use {.code aggregate = TRUE}."
+      ))
+    }
+    rref <- rref_fn(calc_rref(study@isotopes, control_protocol = control_protocol,
+                              by_subject = rref_by_subject))
+    cho_exo <- calc_exogenous_cho(calo, study@isotopes, rref, co2_cho_ratio = co2_k)
+    # calc_exogenous_cho() turns NA into 0; with no Rref the value is unknown
+    cho_exo$cho_exo[is.na(cho_exo$rref)] <- NA_real_
+    cho_pla <- NULL
+    if (!is.null(study@isotopes@rpla) && nrow(study@isotopes@rpla) > 0) {
+      cho_pla <- calc_plasma_cho(calo, study@isotopes, rref, co2_cho_ratio = co2_k)
+    }
+    partition <- calc_cho_partition(substrate_ox, cho_exo, cho_pla,
+                                    id_col = calo@id_col, time_col = calo@time_col,
+                                    protocol_col = calo@protocol_col)
+    substrate_ox <- partition
+  }
+
+  energy <- NULL
+  if (calc_energy) {
+    energy <- calc_energy_yield(substrate_ox,
+                                cho_factor = energy_k$cho,
+                                fat_factor = energy_k$fat,
+                                protein_factor = energy_k$protein) |>
+      calc_energy_percent()
+  }
+
+  list(oxidation = substrate_ox, partition = partition, energy = energy, rref = rref)
 }

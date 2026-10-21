@@ -22,6 +22,12 @@ navbar:
           href: articles/analysis-pipeline.html
         - text: Data Validation & Quality
           href: articles/data-quality.html
+        - text: Stoichiometry of Substrate Oxidation
+          href: articles/stoichiometry.html
+        - text: Uncertainty in Substrate Oxidation
+          href: articles/uncertainty.html
+        - text: Worked Example with 13C-Glucose
+          href: articles/review-example.html
 
 reference:
   - title: "Data Classes"
@@ -66,6 +72,15 @@ reference:
       - filter_steady_state
       - calc_steady_state_stats
 
+  - title: "Constants and Uncertainty"
+    desc: "Choose the constants, propagate measurement uncertainty, and summarise with SD, SE or CI"
+    contents:
+      - oxidation_constants
+      - oxidation_uncertainty
+      - uncertainty_budget
+      - compare_constants
+      - summarize_oxidation
+
   - title: "Oxidation Calculations"
     desc: "Functions for calculating substrate oxidation rates"
     contents:
@@ -76,6 +91,7 @@ reference:
       - calc_fexo
       - calc_rref
       - stoich_coefficients
+      - gas_yield
 
   - title: "Protein Calculations"
     desc: "Functions for protein oxidation from urea"
@@ -193,3 +209,6 @@ articles:
     contents:
       - analysis-pipeline
       - data-quality
+      - stoichiometry
+      - uncertainty
+      - review-example

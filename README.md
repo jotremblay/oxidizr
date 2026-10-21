@@ -17,7 +17,7 @@ Substrate Oxidation Analysis During Exercise
 
 ```r
 # Install from GitHub (once published)
-# remotes::install_github("jtremblay/oxidizr")
+# remotes::install_github("jotremblay/oxidizr")
 
 # Or install locally
 devtools::install("path/to/oxidizr")
@@ -85,18 +85,29 @@ render_oxidation_report(results, output_file = "my_analysis.html")
 ## Key Formulas
 
 ### Stoichiometric equations
-The stoichiometric equations for carbohydrate and fat oxidation are based on general principles (Livesey & Elia, 1988) with coefficients parameterized as presented in Telmosse (2022), derived from Institute of Medicine (2005) data.
+The package derives its coefficients from balanced oxidation reactions at 22.414 L/mol (Livesey & Elia, 1988):
+
+- glucose: C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O (0.7465 L O2 and CO2 per g)
+- fat: dioleoyl-palmitoyl-glycerol, the reference fat of Livesey & Elia (1988): C55H102O6 + 77.5 O2 -> 55 CO2 + 51 H2O (2.0212 L O2 and 1.4344 L CO2 per g, RQ 0.7097)
+- protein: Kleiber's (1961) standard protein without sulfur, oxidized to urea: C100H159N26O32 + 104.25 O2 -> 87 CO2 + 13 CO(NH2)2 + 53.5 H2O (1.0443 L O2 and 0.8715 L CO2 per g, RQ 0.835; 2.8660 g protein per g urea)
 
 ```
-CHO (g/min) = 4.618 * VCO2 - 3.279 * VO2
-Fat (g/min) = -1.712 * VCO2 + 1.712 * VO2
+CHO (g/min) = 4.6143 * VCO2 - 3.2746 * VO2
+Fat (g/min) = 1.7041 * VO2 - 1.7041 * VCO2
 ```
+
+The rates are net rates and are not truncated at zero: a negative fat oxidation (nonprotein RER above 1) is reported as computed.
+
+`gas_yield()` computes the gas volumes for any formula, and `vignette("stoichiometry")` gives the reasoning and sources for each choice. `oxidation_constants()` lets you choose another lipid, molar volume, protein factors or energy values, and `compare_constants()` shows how much the choice changes the results.
+
+### Uncertainty
+`analyze_oxidation()` propagates measurement uncertainty (`oxidation_uncertainty()`) and reports, for each rate, its standard uncertainty and its systematic part. `uncertainty_budget()` ranks the sources, and summaries report SD, SE or a t-based CI with the subject as the unit. See `vignette("uncertainty")`.
 
 ### Exogenous CHO from 13C
-The formula for exogenous carbohydrate oxidation utilizes a CO2/CHO conversion ratio of 0.747 L CO2 per gram CHO oxidized (Péronnet & Massicotte, 1991; Telmosse, 2022).
+The Mosora equation divides by k, the CO2 produced per gram of glucose, from the same glucose reaction (6 x 22.414 / 180.16 = 0.7465 L/g).
 
 ```
-CHOexo = VCO2 * ((Rexp - Rref) / (Rexo - Rref)) / 0.747
+CHOexo = VCO2 * ((Rexp - Rref) / (Rexo - Rref)) / 0.7465
 ```
 
 ## References

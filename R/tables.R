@@ -108,19 +108,34 @@ tbl_subjects <- function(study,
 
 #' Oxidation Summary Table
 #'
-#' Create a summary table of oxidation rates.
+#' Create a summary table of oxidation rates. Values are summarised with
+#' [summarize_oxidation()]: each subject's rows are averaged first, so `n`
+#' counts subjects and the error describes between-subject variation.
 #'
 #' @param results An OxidationResults object
 #' @param by Grouping variable (e.g., "protocol")
 #' @param vars Variables to include (NULL = auto)
 #' @param decimals Number of decimal places
+#' @param error Statistic shown with the mean: `"sd"` and `"se"` give
+#'   "mean +/- value"; `"ci"` gives "mean (low to high)", a t-based confidence
+#'   interval. A source note names the statistic.
+#' @param level Confidence level when `error = "ci"` (default 0.95).
+#' @param unit Subject column used as the unit of analysis. `NULL` uses the
+#'   study's ID column, or `"id"`; when neither is present, rows are the unit.
 #'
-#' @return A gt table object
+#' @return A gt table object. When the data hold `<var>_u_sys` columns
+#'   (systematic standard uncertainty), each variable gets an extra
+#'   "+/- systematic" column.
 #' @export
 tbl_oxidation_summary <- function(results,
                                   by = NULL,
                                   vars = NULL,
-                                  decimals = 2) {
+                                  decimals = 2,
+                                  error = c("sd", "se", "ci"),
+                                  level = 0.95,
+                                  unit = NULL) {
+
+  error <- match.arg(error)
 
   if (S7_inherits(results, OxidationResults)) {
     df <- results@oxidation_rates
@@ -139,36 +154,6 @@ tbl_oxidation_summary <- function(results,
     cli::cli_abort("No matching oxidation columns found")
   }
 
-  # Calculate summary
-  if (!is.null(by) && by %in% names(df)) {
-    summary_df <- df |>
-      dplyr::group_by(.data[[by]]) |>
-      dplyr::summarise(
-        n = dplyr::n(),
-        dplyr::across(
-          dplyr::all_of(available_vars),
-          list(mean = ~ mean(.x, na.rm = TRUE),
-               sd = ~ sd(.x, na.rm = TRUE)),
-          .names = "{.col}_{.fn}"
-        ),
-        .groups = "drop"
-      )
-  } else {
-    summary_df <- df |>
-      dplyr::summarise(
-        n = dplyr::n(),
-        dplyr::across(
-          dplyr::all_of(available_vars),
-          list(mean = ~ mean(.x, na.rm = TRUE),
-               sd = ~ sd(.x, na.rm = TRUE)),
-          .names = "{.col}_{.fn}"
-        )
-      )
-  }
-
-  # Create gt table
-  tbl <- gt::gt(summary_df)
-
   # Labels for oxidation variables
   var_labels <- c(
     cho_total = "Total CHO (g/min)",
@@ -180,45 +165,21 @@ tbl_oxidation_summary <- function(results,
     cho_liv = "Liver CHO (g/min)"
   )
 
-  # Format and merge columns
-  for (var in available_vars) {
-    mean_col <- paste0(var, "_mean")
-    sd_col <- paste0(var, "_sd")
-
-    if (mean_col %in% names(summary_df)) {
-      label <- if (var %in% names(var_labels)) var_labels[var] else var
-
-      tbl <- tbl |>
-        gt::fmt_number(columns = dplyr::all_of(c(mean_col, sd_col)),
-                       decimals = decimals) |>
-        gt::cols_merge_uncert(
-          col_val = dplyr::all_of(mean_col),
-          col_uncert = dplyr::all_of(sd_col)
-        ) |>
-        gt::cols_label(!!mean_col := label)
-    }
-  }
-
-  tbl <- tbl |>
-    gt::cols_label(n = gt::md("**n**"))
-
-  if (!is.null(by)) {
-    tbl <- tbl |>
-      gt::cols_label(!!by := gt::md(paste0("**", by, "**")))
-  }
-
-  tbl
+  if (is.null(unit)) unit <- summary_unit(results, df)
+  summary_gt(df, available_vars, var_labels, by, error, level, unit, decimals)
 }
 
 #' Energy Contribution Table
 #'
-#' Create a table of energy contributions by substrate.
+#' Create a table of energy contributions by substrate, summarised with
+#' [summarize_oxidation()] (the subject is the unit).
 #'
 #' @param results An OxidationResults object
 #' @param by Grouping variable
 #' @param show_kcal Show absolute energy (kcal/min)
 #' @param show_percent Show percentage contributions
 #' @param decimals Number of decimal places
+#' @inheritParams tbl_oxidation_summary
 #'
 #' @return A gt table object
 #' @export
@@ -226,7 +187,12 @@ tbl_energy_contribution <- function(results,
                                     by = NULL,
                                     show_kcal = TRUE,
                                     show_percent = TRUE,
-                                    decimals = 1) {
+                                    decimals = 1,
+                                    error = c("sd", "se", "ci"),
+                                    level = 0.95,
+                                    unit = NULL) {
+
+  error <- match.arg(error)
 
   if (S7_inherits(results, OxidationResults)) {
     df <- results@energy_contributions
@@ -248,35 +214,6 @@ tbl_energy_contribution <- function(results,
 
   available_vars <- intersect(vars, names(df))
 
-  # Calculate summary
-  if (!is.null(by) && by %in% names(df)) {
-    summary_df <- df |>
-      dplyr::group_by(.data[[by]]) |>
-      dplyr::summarise(
-        n = dplyr::n(),
-        dplyr::across(
-          dplyr::all_of(available_vars),
-          list(mean = ~ mean(.x, na.rm = TRUE),
-               sd = ~ sd(.x, na.rm = TRUE)),
-          .names = "{.col}_{.fn}"
-        ),
-        .groups = "drop"
-      )
-  } else {
-    summary_df <- df |>
-      dplyr::summarise(
-        n = dplyr::n(),
-        dplyr::across(
-          dplyr::all_of(available_vars),
-          list(mean = ~ mean(.x, na.rm = TRUE),
-               sd = ~ sd(.x, na.rm = TRUE)),
-          .names = "{.col}_{.fn}"
-        )
-      )
-  }
-
-  tbl <- gt::gt(summary_df)
-
   # Labels
   var_labels <- c(
     e_cho_total = "CHO (kcal/min)",
@@ -288,33 +225,67 @@ tbl_energy_contribution <- function(results,
     pct_protein = "Protein (%)"
   )
 
-  for (var in available_vars) {
+  if (is.null(unit)) unit <- summary_unit(results, df)
+  summary_gt(df, available_vars, var_labels, by, error, level, unit, decimals)
+}
+
+#' Summarise variables and lay them out as a gt table
+#'
+#' Shared by the summary tables: one merged "mean +/- error" or
+#' "mean (low to high)" column per variable, an optional "+/- systematic"
+#' column when `<var>_u_sys` exists, and a source note naming the statistic.
+#' @noRd
+summary_gt <- function(df, vars, labels, by, error, level, unit, decimals) {
+
+  missing_by <- setdiff(by, names(df))
+  if (length(missing_by) > 0) {
+    cli::cli_inform("Column{?s} {.val {missing_by}} not found: summarising without grouping.")
+    by <- NULL
+  }
+  summary_df <- summarize_oxidation(df, vars = vars, by = by,
+                                    level = level, unit = unit)
+
+  err_cols <- if (error == "ci") c("_ci_low", "_ci_high") else paste0("_", error)
+  keep <- unlist(lapply(vars, function(v) {
+    c(paste0(v, c("_mean", err_cols)),
+      intersect(paste0(v, "_u_sys"), names(summary_df)))
+  }))
+
+  tbl <- gt::gt(summary_df[c(by, "n", keep)]) |>
+    gt::fmt_number(columns = dplyr::all_of(keep), decimals = decimals)
+
+  for (var in vars) {
     mean_col <- paste0(var, "_mean")
-    sd_col <- paste0(var, "_sd")
-
-    if (mean_col %in% names(summary_df)) {
-      label <- if (var %in% names(var_labels)) var_labels[var] else var
-
-      tbl <- tbl |>
-        gt::fmt_number(columns = dplyr::all_of(c(mean_col, sd_col)),
-                       decimals = decimals) |>
-        gt::cols_merge_uncert(
-          col_val = dplyr::all_of(mean_col),
-          col_uncert = dplyr::all_of(sd_col)
-        ) |>
-        gt::cols_label(!!mean_col := label)
+    if (error == "ci") {
+      tbl <- gt::cols_merge(
+        tbl,
+        columns = dplyr::all_of(paste0(var, c("_mean", "_ci_low", "_ci_high"))),
+        pattern = "{1}<< ({2} to {3})>>"
+      )
+    } else {
+      tbl <- gt::cols_merge_uncert(
+        tbl,
+        col_val = dplyr::all_of(mean_col),
+        col_uncert = dplyr::all_of(paste0(var, "_", error))
+      )
+    }
+    label <- if (var %in% names(labels)) labels[[var]] else var
+    tbl <- gt::cols_label(tbl, !!mean_col := label)
+    u_col <- paste0(var, "_u_sys")
+    if (u_col %in% keep) {
+      tbl <- gt::cols_label(tbl, !!u_col := "\u00b1 systematic")
     }
   }
 
   tbl <- tbl |>
     gt::cols_label(n = gt::md("**n**"))
 
-  if (!is.null(by)) {
-    tbl <- tbl |>
-      gt::cols_label(!!by := gt::md(paste0("**", by, "**")))
+  for (b in by) {
+    tbl <- gt::cols_label(tbl, !!b := gt::md(paste0("**", b, "**")))
   }
 
-  tbl
+  per <- if (!is.null(unit) && unit %in% names(df)) "subjects" else "rows"
+  gt::tab_source_note(tbl, paste0(error_label(error, level), "; n = number of ", per, "."))
 }
 
 #' Statistical Results Table

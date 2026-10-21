@@ -9,7 +9,10 @@ tbl_energy_contribution(
   by = NULL,
   show_kcal = TRUE,
   show_percent = TRUE,
-  decimals = 1
+  decimals = 1,
+  error = c("sd", "se", "ci"),
+  level = 0.95,
+  unit = NULL
 )
 }
 \arguments{
@@ -22,10 +25,20 @@ tbl_energy_contribution(
 \item{show_percent}{Show percentage contributions}
 
 \item{decimals}{Number of decimal places}
+
+\item{error}{Statistic shown with the mean: \code{"sd"} and \code{"se"} give
+"mean +/- value"; \code{"ci"} gives "mean (low to high)", a t-based confidence
+interval. A source note names the statistic.}
+
+\item{level}{Confidence level when \code{error = "ci"} (default 0.95).}
+
+\item{unit}{Subject column used as the unit of analysis. \code{NULL} uses the
+study's ID column, or \code{"id"}; when neither is present, rows are the unit.}
 }
 \value{
 A gt table object
 }
 \description{
-Create a table of energy contributions by substrate.
+Create a table of energy contributions by substrate, summarised with
+\code{\link[=summarize_oxidation]{summarize_oxidation()}} (the subject is the unit).
 }

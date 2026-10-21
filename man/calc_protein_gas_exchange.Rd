@@ -6,16 +6,19 @@
 \usage{
 calc_protein_gas_exchange(
   protein_ox,
-  vo2_factor = 1.0075,
-  vco2_factor = 0.8443
+  vo2_factor = stoich_coefficients$protein_vo2,
+  vco2_factor = stoich_coefficients$protein_vco2
 )
 }
 \arguments{
 \item{protein_ox}{Protein oxidation rate (g/min) - vector or data frame}
 
-\item{vo2_factor}{VO2 per gram protein (default: 1.0075 L/g, derived from Institute of Medicine, 2005, as presented in Telmosse, 2022)}
+\item{vo2_factor}{L O2 used per g protein (default:
+\code{stoich_coefficients$protein_vo2}, 1.0443 L/g for Kleiber's standard
+protein without sulfur oxidized to urea)}
 
-\item{vco2_factor}{VCO2 per gram protein (default: 0.8443 L/g, derived from Institute of Medicine, 2005, as presented in Telmosse, 2022)}
+\item{vco2_factor}{L CO2 produced per g protein (default:
+\code{stoich_coefficients$protein_vco2}, 0.8715 L/g, RQ 0.835)}
 }
 \value{
 A tibble with VO2p and VCO2p values

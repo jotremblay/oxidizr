@@ -6,19 +6,20 @@
 \usage{
 calc_energy_yield(
   oxidation,
-  cho_factor = 3.72,
-  fat_factor = 9.44,
-  protein_factor = 4.7
+  cho_factor = energy_factors$cho,
+  fat_factor = energy_factors$fat,
+  protein_factor = energy_factors$protein
 )
 }
 \arguments{
 \item{oxidation}{A data frame with oxidation rates (from calc_substrate_oxidation)}
 
-\item{cho_factor}{Energy per gram CHO (default: 3.72 kcal/g)}
+\item{cho_factor}{Energy per gram CHO (default: \code{energy_factors$cho}, 3.72 kcal/g)}
 
-\item{fat_factor}{Energy per gram fat (default: 9.44 kcal/g)}
+\item{fat_factor}{Energy per gram fat (default: \code{energy_factors$fat}, 9.44 kcal/g)}
 
-\item{protein_factor}{Energy per gram protein (default: 4.70 kcal/g)}
+\item{protein_factor}{Energy per gram protein (default:
+\code{energy_factors$protein}, 4.70 kcal/g)}
 }
 \value{
 A tibble with energy yield columns added
@@ -27,11 +28,12 @@ A tibble with energy yield columns added
 Convert substrate oxidation rates (g/min) to energy yield (kcal/min).
 }
 \details{
-Default energy factors:
+Default energy factors (\link{energy_factors}; IOM, 2005, Table 5-1, which
+repeats Livesey & Elia, 1988):
 \itemize{
-\item Carbohydrate: 3.72 kcal/g (average of glucose, glycogen)
-\item Fat: 9.44 kcal/g (average triglyceride)
-\item Protein: 4.70 kcal/g (average amino acid mixture)
+\item Carbohydrate: 3.72 kcal/g (glucose, 15.56 kJ/g)
+\item Fat: 9.44 kcal/g (general triacylglycerol, 39.5 kJ/g)
+\item Protein: 4.70 kcal/g (protein oxidized in the body, 19.68 kJ/g)
 }
 
 These values can be customized for specific substrates.

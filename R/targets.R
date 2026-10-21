@@ -287,6 +287,8 @@ tar_import_data <- function(data_dir = "data",
 #'
 #' @param cleaned_data Output from \code{tar_import_data()}
 #' @param exercise_duration Duration of exercise in minutes (default: 120)
+#' @param baseline_water_ml Water intake (mL) not recorded in `water_ingested`,
+#'   added to the fluid balance (default: 2000, the study protocol)
 #'
 #' @return A list containing:
 #' \describe{
@@ -305,7 +307,8 @@ tar_import_data <- function(data_dir = "data",
 #' }
 #'
 #' @export
-tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120) {
+tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120,
+                                   baseline_water_ml = 2000) {
 
   # Extract data from cleaned_data list
   calo_s7 <- cleaned_data$calo_s7
@@ -319,27 +322,22 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120) {
   # Calculate protein oxidation from urea (mass balance approach)
   protein_oxidation <- prot_data |>
     dplyr::mutate(
+      sweat_loss = sweat_balance(
+        vo2 = vo2_mean, vco2 = vco2_mean, ve = ve_mean,
+        temperature = temperature, humidity = humidity, pressure = p_atm,
+        initial_mass = initial_body_mass, final_mass = final_body_mass,
+        water = water_ingested, saline = saline, urine = urine,
+        exercise_duration = exercise_duration,
+        baseline_water_ml = baseline_water_ml
+      ),
       urine_urea_loss = urine * urine_urea / 1000,
-      expired_O2_mass = vo2_mean * exercise_duration / 22.4 * 32,
-      expired_CO2_mass = vco2_mean * exercise_duration / 22.4 * 44,
-      expired_gas_lost = expired_CO2_mass - expired_O2_mass,
-      pH2O_saturated = 5.53275 * 10^(0.02585 * temperature),
-      pH2O_ambient = pH2O_saturated * (humidity / 100),
-      H2O_vapor_in = (ve_mean * exercise_duration / p_atm) * pH2O_ambient,
-      H2O_vapor_out = (ve_mean * exercise_duration / p_atm) * 47,
-      H2O_mass_lost = (((273 * (((H2O_vapor_out - H2O_vapor_in) * p_atm) / 760)) /
-                          (273 + 37)) / 22.4) * 18,
-      body_mass_gain = initial_body_mass + (water_ingested + 2000 + saline) / 1000,
-      mass_lost = (expired_gas_lost + H2O_mass_lost) / 1000,
-      virtual_mass = body_mass_gain - mass_lost,
-      sweat_loss = virtual_mass - final_body_mass,
       sweat_urea_loss = sweat_loss * sweat_urea,
       total_urea_loss = sweat_urea_loss + urine_urea_loss,
-      urea_mass_loss = total_urea_loss / 1000 * 60,
-      total_protein_ox = urea_mass_loss * 2.9,
+      urea_mass_loss = total_urea_loss / 1000 * urea_molar_mass,
+      total_protein_ox = urea_mass_loss * stoich_coefficients$protein_urea,
       protein_ox = total_protein_ox / exercise_duration
     ) |>
-    dplyr::select(id, protein_ox, total_protein_ox)
+    dplyr::select(id, protocol, protein_ox, total_protein_ox)
 
   # Calculate substrate oxidation using oxidizr
   substrate_ox <- calc_substrate_oxidation(
@@ -359,8 +357,7 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120) {
     dplyr::left_join(Rref_clean, by = "time") |>
     dplyr::left_join(Rexo_clean |> dplyr::select(protocol, rexo), by = "protocol") |>
     dplyr::mutate(
-      cho_exo = vco2 * ((rexp - rref) / (rexo - rref)) / stoich_coefficients$co2_cho_ratio,
-      cho_exo = pmax(cho_exo, 0, na.rm = TRUE)
+      cho_exo = vco2 * ((rexp - rref) / (rexo - rref)) / stoich_coefficients$co2_cho_ratio
     ) |>
     dplyr::select(id, time, protocol, cho_exo, rexp, rexo, rref)
 
@@ -375,7 +372,6 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120) {
     dplyr::left_join(Rexo_clean |> dplyr::select(protocol, rexo), by = "protocol") |>
     dplyr::mutate(
       cho_pla = vco2 * ((rexp - rref) / (rpla - rref)) / stoich_coefficients$co2_cho_ratio,
-      cho_pla = pmax(cho_pla, 0, na.rm = TRUE),
       fexo = ((rpla - rref) / (rexo - rref)) * 100
     ) |>
     dplyr::select(id, time, protocol, cho_pla, rpla, fexo)
@@ -389,10 +385,7 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120) {
     dplyr::mutate(
       cho_endo = cho_total - cho_exo,
       cho_mus = cho_total - cho_pla,
-      cho_liv = cho_pla - cho_exo,
-      cho_endo = pmax(cho_endo, 0, na.rm = TRUE),
-      cho_mus = pmax(cho_mus, 0, na.rm = TRUE),
-      cho_liv = pmax(cho_liv, 0, na.rm = TRUE)
+      cho_liv = cho_pla - cho_exo
     )
 
   # Calculate energy contributions

@@ -8,7 +8,9 @@ plot_energy_contribution(
   results,
   by = "protocol",
   partition = FALSE,
-  show_error = TRUE
+  show_error = TRUE,
+  error_type = c("sd", "se", "ci"),
+  level = 0.95
 )
 }
 \arguments{
@@ -19,6 +21,12 @@ plot_energy_contribution(
 \item{partition}{Show CHO partition (exo/endo) instead of total}
 
 \item{show_error}{Show error bars}
+
+\item{error_type}{Type of error bars: "sd", "se" or "ci" (t-based
+confidence interval). Means and errors are computed across subjects
+with \code{\link[=summarize_oxidation]{summarize_oxidation()}}.}
+
+\item{level}{Confidence level when \code{error_type = "ci"} (default 0.95)}
 }
 \value{
 A ggplot2 object

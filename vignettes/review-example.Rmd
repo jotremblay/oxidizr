@@ -1,0 +1,100 @@
+---
+title: "Worked Example: Fuel Selection with 13C-Glucose"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Worked Example: Fuel Selection with 13C-Glucose}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This vignette works through the illustrative example of a methods review of
+indirect calorimetry and 13C tracing (Tremblay, in preparation), with the
+default constants of oxidizr. The values describe one subject exercising at
+about 60% of maximal O2 uptake while ingesting glucose from maize; they are
+not data from a study.
+
+```{r setup, message = FALSE}
+library(oxidizr)
+
+vo2 <- 2.80; vco2 <- 2.52        # L/min, STPD
+d_exp <- -20.5; d_ref <- -24.5    # breath delta 13C (per mil PDB), glucose and control trials
+d_ing <- -11.0; d_glu <- -13.0    # ingested glucose and plasma glucose
+```
+
+## Constants
+
+The defaults are dioleoyl-palmitoyl-glycerol as the reference fat, Kleiber's
+standard protein without sulfur, a molar volume of 22.414 L/mol and the energy
+values of the Institute of Medicine (2005). See `vignette("stoichiometry")`.
+
+```{r}
+k <- oxidation_constants()
+k
+```
+
+## Total carbohydrate and fat oxidation
+
+```{r}
+ox <- calc_substrate_oxidation(
+  CalorimetryData(data = data.frame(id = 1, time = 60, vo2 = vo2, vco2 = vco2))
+)
+ox[, c("cho_total", "fat_total", "rer")]
+```
+
+## Exogenous, plasma, liver and muscle glucose
+
+The fraction of expired CO2 that comes from a labeled substrate is
+(delta_exp - delta_ref) / (delta_substrate - delta_ref). Dividing the CO2 it
+represents by `k$co2_cho_ratio` (L CO2 per g glucose) gives grams of glucose.
+
+```{r}
+exo <- vco2 * (d_exp - d_ref) / (d_ing - d_ref) / k$co2_cho_ratio
+pla <- vco2 * (d_exp - d_ref) / (d_glu - d_ref) / k$co2_cho_ratio
+round(c(
+  total_cho  = ox$cho_total,
+  fat        = ox$fat_total,
+  exogenous  = exo,
+  plasma     = pla,
+  liver      = pla - exo,
+  muscle     = ox$cho_total - pla
+), 2)
+```
+
+In a study, `calc_exogenous_cho()`, `calc_plasma_cho()` and
+`calc_cho_partition()` do these steps for every subject and time point, with
+the reference taken from the control trial (`calc_rref()`).
+
+## How much the constants matter
+
+```{r}
+lipids <- c("diop", "tag_type", "tripalmitin", "pos", "fatty_acid")
+t(sapply(lipids, function(l) {
+  kk <- oxidation_constants(lipid = l)
+  c(cho = kk$cho_vco2 * vco2 + kk$cho_vo2 * vo2,
+    fat = kk$fat_vo2 * vo2 + kk$fat_vco2 * vco2)
+})) |> round(3)
+```
+
+## How much an error in RER matters
+
+An error of +0.01 in RER (VCO2 = 2.548 instead of 2.52 L/min) changes
+carbohydrate and fat oxidation by these percentages:
+
+```{r}
+err <- calc_substrate_oxidation(
+  CalorimetryData(data = data.frame(id = 1, time = 60, vo2 = vo2, vco2 = vco2 + 0.01 * vo2))
+)
+round(100 * c(cho = err$cho_total / ox$cho_total - 1,
+              fat = err$fat_total / ox$fat_total - 1), 1)
+```
+
+`vignette("uncertainty")` propagates measurement uncertainty through a whole
+study.
+
+## References
+
+Institute of Medicine (2005). *Dietary Reference Intakes for Energy, Carbohydrate, Fiber, Fat, Fatty Acids, Cholesterol, Protein, and Amino Acids*. National Academies Press. https://doi.org/10.17226/10490

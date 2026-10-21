@@ -55,11 +55,12 @@ The main workflow function `analyze_oxidation()` orchestrates this pipeline and 
 
 ### Key Stoichiometric Constants
 
-Defined in `R/oxidizr-package.R` via `stoich_coefficients`:
-- CHO: 4.618 × VCO2 - 3.279 × VO2 (g/min)
-- Fat: -1.712 × VCO2 + 1.712 × VO2 (g/min)
-- CO2/CHO ratio: 0.747 L CO2 per gram CHO oxidized
-- Protein-urea conversion: 2.915 g protein per g urea
+Computed at build time in `R/oxidizr-package.R` from the `substrates` table with `gas_yield()` (see `vignette("stoichiometry")`):
+- CHO: 4.6211 × VCO2 - 3.2815 × VO2 (g/min); glucose at 22.414 L/mol
+- Fat: 1.7137 × VO2 - 1.7137 × VCO2 (g/min); TAG-type C53.4H99.2O6 (Telmosse, 2022)
+- CO2/CHO ratio: 0.7465 L CO2 per gram glucose oxidized
+- Protein: 1.0103 L O2/g, 0.8436 L CO2/g, 2.9154 g protein per g urea (Livesey & Elia, 1988)
+- Change a value in `substrates`, never the derived numbers
 
 ### Generic Methods
 
