@@ -17,7 +17,7 @@ Substrate Oxidation Analysis During Exercise
 
 ```r
 # Install from GitHub (once published)
-# remotes::install_github("jtremblay/oxidizr")
+# remotes::install_github("jotremblay/oxidizr")
 
 # Or install locally
 devtools::install("path/to/oxidizr")
@@ -85,16 +85,18 @@ render_oxidation_report(results, output_file = "my_analysis.html")
 ## Key Formulas
 
 ### Stoichiometric equations
-The package derives its coefficients from balanced oxidation reactions, following the step-by-step method of Telmosse (2022), with 22.4 L/mol replaced by 22.414 L/mol (Livesey & Elia, 1988):
+The package derives its coefficients from balanced oxidation reactions at 22.414 L/mol (Livesey & Elia, 1988):
 
 - glucose: C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O (0.7465 L O2 and CO2 per g)
-- TAG-type (Telmosse, 2022, matched to Institute of Medicine, 2005): C53.4H99.2O6 + 75.2 O2 -> 53.4 CO2 + 49.6 H2O (2.0129 L O2 and 1.4294 L CO2 per g)
-- protein: general values of Livesey & Elia (1988), 1.0103 L O2 and 0.8436 L CO2 per g; 2.9154 g protein per g urea
+- fat: dioleoyl-palmitoyl-glycerol, the reference fat of Livesey & Elia (1988): C55H102O6 + 77.5 O2 -> 55 CO2 + 51 H2O (2.0212 L O2 and 1.4344 L CO2 per g, RQ 0.7097)
+- protein: Kleiber's (1961) standard protein without sulfur, oxidized to urea: C100H159N26O32 + 104.25 O2 -> 87 CO2 + 13 CO(NH2)2 + 53.5 H2O (1.0443 L O2 and 0.8715 L CO2 per g, RQ 0.835; 2.8660 g protein per g urea)
 
 ```
-CHO (g/min) = 4.6211 * VCO2 - 3.2815 * VO2
-Fat (g/min) = 1.7137 * VO2 - 1.7137 * VCO2
+CHO (g/min) = 4.6143 * VCO2 - 3.2746 * VO2
+Fat (g/min) = 1.7041 * VO2 - 1.7041 * VCO2
 ```
+
+The rates are net rates and are not truncated at zero: a negative fat oxidation (nonprotein RER above 1) is reported as computed.
 
 `gas_yield()` computes the gas volumes for any formula, and `vignette("stoichiometry")` gives the reasoning and sources for each choice. `oxidation_constants()` lets you choose another lipid, molar volume, protein factors or energy values, and `compare_constants()` shows how much the choice changes the results.
 

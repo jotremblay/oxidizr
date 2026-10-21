@@ -190,15 +190,20 @@ urea_molar_mass <- sum(atomic_weight * c(C = 1, H = 4, O = 1, N = 2))
 # option of each part is the default.
 constant_options <- list(
   lipid = list(
+    diop = list(
+      formula = c(C = 55, H = 102, O = 6),
+      label = "dioleoyl-palmitoyl-glycerol C55H102O6",
+      source = "Livesey & Elia (1988), Table 4; Elia & Livesey (1992), Table 1"
+    ),
     tag_type = list(
       formula = c(C = 53.4, H = 99.2, O = 6),
       label = "TAG-type C53.4H99.2O6",
       source = "Telmosse (2022), p. 20; matches IOM (2005), Table 5-1"
     ),
-    diop = list(
-      formula = c(C = 55, H = 102, O = 6),
-      label = "dioleoyl-palmitoyl-glycerol C55H102O6",
-      source = "Livesey & Elia (1988), Table 4"
+    tripalmitin = list(
+      formula = c(C = 51, H = 98, O = 6),
+      label = "tripalmitin C51H98O6",
+      source = "Kleiber (1961), Table 5.6"
     ),
     pos = list(
       formula = c(C = 55, H = 104, O = 6),
@@ -229,6 +234,11 @@ constant_options <- list(
     )
   ),
   protein = list(
+    kleiber = list(
+      formula = c(C = 100, H = 159, O = 32, N = 26),
+      label = "Kleiber's standard protein without S, C100H159N26O32, N to urea",
+      source = "Kleiber (1961), Table 4.2 and p. 85; formula of Elia & Livesey (1992), Table 1, without S"
+    ),
     livesey_elia = list(
       kj_g = 19.68,    # energy density, kJ/g
       kj_l_o2 = 19.48, # heat equivalent of O2, kJ/L
@@ -331,10 +341,14 @@ protein_yield <- function(formula, molar_volume) {
 #'
 #' @param lipid The lipid whose oxidation reaction sets the fat equation:
 #'   \describe{
-#'     \item{`"tag_type"`}{(default) TAG-type C53.4H99.2O6 of Telmosse (2022,
-#'       p. 20), chosen to match IOM (2005, Table 5-1): RQ 0.710.}
-#'     \item{`"diop"`}{dioleoyl-palmitoyl-glycerol C55H102O6, the reference fat
-#'       of Livesey & Elia (1988, Table 4): RQ 0.7097.}
+#'     \item{`"diop"`}{(default) dioleoyl-palmitoyl-glycerol C55H102O6, the
+#'       reference fat of Livesey & Elia (1988, Table 4) and Elia & Livesey
+#'       (1992, Table 1), close to the average triacylglycerol of human adipose
+#'       tissue (Péronnet & Massicotte, 1991): RQ 0.7097.}
+#'     \item{`"tag_type"`}{TAG-type C53.4H99.2O6 of Telmosse (2022, p. 20),
+#'       chosen to match IOM (2005, Table 5-1): RQ 0.710.}
+#'     \item{`"tripalmitin"`}{tripalmitin C51H98O6, the fat of Kleiber (1961,
+#'       Table 5.6): RQ 0.703.}
 #'     \item{`"pos"`}{palmitoyl-stearoyl-oleoyl-glycerol C55H104O6, used by
 #'       Frayn (1983) and Ferrannini (1988).}
 #'     \item{`"fatty_acid"`}{the mean fatty acid of human adipose tissue,
@@ -353,7 +367,12 @@ protein_yield <- function(formula, molar_volume) {
 #'   }
 #' @param protein The protein gas exchange and urea factor:
 #'   \describe{
-#'     \item{`"livesey_elia"`}{(default) the general values of Livesey & Elia
+#'     \item{`"kleiber"`}{(default) Kleiber's standard protein (1961, Table
+#'       4.2: 53% C, 7% H, 16% N, 23% O, 1% S) without its sulfur, which Kleiber
+#'       (p. 85) judged small enough to neglect: C100H159N26O32, oxidized to
+#'       urea at the chosen molar volume. RQ 0.835; 16.3% N, so 6.14 g protein
+#'       per g N.}
+#'     \item{`"livesey_elia"`}{the general values of Livesey & Elia
 #'       (1988, Table 6): 19.68 kJ/g / 19.48 kJ/L O2 = 1.0103 L O2/g, RQ 0.835;
 #'       6.25 g protein per g N (p. 620), so 2.9154 g protein per g urea.}
 #'     \item{`"protein_type"`}{the protein-type C89H148.5O32N23.5 of Telmosse
@@ -379,6 +398,10 @@ protein_yield <- function(formula, molar_volume) {
 #'
 #' @seealso [stoich_coefficients], [compare_constants()], `vignette("stoichiometry")`
 #' @references
+#'   Elia, M., & Livesey, G. (1992). Energy expenditure and fuel selection in
+#'   biological systems. *World Review of Nutrition and Dietetics*, *70*,
+#'   68-131.
+#'
 #'   Ferrannini, E. (1988). The theoretical bases of indirect calorimetry: a
 #'   review. *Metabolism*, *37*(3), 287-301.
 #'
@@ -392,6 +415,9 @@ protein_yield <- function(formula, molar_volume) {
 #'   Jeukendrup, A. E., & Wallis, G. A. (2005). Measurement of substrate
 #'   oxidation during exercise by means of gas exchange measurements.
 #'   *International Journal of Sports Medicine*, *26*(Suppl 1), S28-S37.
+#'
+#'   Kleiber, M. (1961). *The Fire of Life: An Introduction to Animal
+#'   Energetics*. Wiley.
 #'
 #'   Livesey, G., & Elia, M. (1988). *The American Journal of Clinical
 #'   Nutrition*, *47*(4), 608-628.
@@ -408,9 +434,9 @@ protein_yield <- function(formula, molar_volume) {
 #'
 #' # The equations of Péronnet & Massicotte (1991) and Jeukendrup & Wallis (2005)
 #' oxidation_constants(lipid = "fatty_acid", molar_volume = "real_gas")
-oxidation_constants <- function(lipid = "tag_type",
+oxidation_constants <- function(lipid = "diop",
                                 molar_volume = "livesey_elia",
-                                protein = "livesey_elia",
+                                protein = "kleiber",
                                 energy = "iom") {
   lipid <- match.arg(lipid, names(constant_options$lipid))
   molar_volume <- match.arg(molar_volume, names(constant_options$molar_volume))
@@ -504,27 +530,26 @@ energy_factors <- oxidation_constants()$energy
 #'
 #' Coefficients that convert gas exchange (L/min) into substrate oxidation
 #' (g/min), from the default [oxidation_constants()]. The package computes them
-#' when it is built, from balanced reactions, as Telmosse (2022, pp. 17-26)
-#' shows step by step. Use [oxidation_constants()] to choose other options.
+#' when it is built, from balanced reactions. Use [oxidation_constants()] to
+#' choose other options.
 #'
 #' @details
 #' The gas volumes per gram come from [gas_yield()] at 22.414 L/mol
 #' (Livesey & Elia, 1988) for:
 #' \itemize{
 #'   \item glucose, C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O (0.7465 L O2 and CO2 per g);
-#'   \item the TAG-type of Telmosse (2022), C53.4H99.2O6 + 75.2 O2 ->
-#'     53.4 CO2 + 49.6 H2O (2.0129 L O2/g, 1.4294 L CO2/g, RQ 0.710).
+#'   \item dioleoyl-palmitoyl-glycerol, the reference fat of Livesey & Elia
+#'     (1988, Table 4) and Elia & Livesey (1992, Table 1), C55H102O6 + 77.5 O2
+#'     -> 55 CO2 + 51 H2O (2.0212 L O2/g, 1.4344 L CO2/g, RQ 0.7097).
 #' }
-#' Solving VO2 = 0.7465 CHO + 2.0129 FAT and VCO2 = 0.7465 CHO + 1.4294 FAT
-#' gives CHO = 4.6211 VCO2 - 3.2815 VO2 and FAT = 1.7137 (VO2 - VCO2).
-#' Telmosse (2022) obtained 4.618, 3.279 and 1.712 with 22.4 L/mol, whole-number
-#' atomic weights and rounded volumes.
+#' Solving VO2 = 0.7465 CHO + 2.0212 FAT and VCO2 = 0.7465 CHO + 1.4344 FAT
+#' gives CHO = 4.6143 VCO2 - 3.2746 VO2 and FAT = 1.7041 (VO2 - VCO2).
 #'
-#' Protein values are computed from the general values of Livesey & Elia
-#' (1988, Table 6): 19.68 kJ/g / 19.48 kJ/L O2 = 1.0103 L O2/g, times RQ 0.835
-#' = 0.8436 L CO2/g. The urea factor is 6.25 g protein per g N (Livesey & Elia,
-#' 1988, p. 620) times the N fraction of urea (0.46646), that is 2.9154 g
-#' protein per g urea.
+#' Protein is Kleiber's standard protein (1961, Table 4.2) without its sulfur,
+#' C100H159N26O32, oxidized to urea:
+#' C100H159N26O32 + 104.25 O2 -> 87 CO2 + 13 CO(NH2)2 + 53.5 H2O,
+#' that is 1.0443 L O2/g and 0.8715 L CO2/g (RQ 0.835). The protein is 16.3% N,
+#' so 1 g of urea comes from 2.8660 g of protein.
 #'
 #' See `vignette("stoichiometry")` for the reasons behind each choice.
 #'
@@ -539,9 +564,12 @@ energy_factors <- oxidation_constants()$energy
 #' @seealso [oxidation_constants()], [gas_yield()], [energy_factors],
 #'   `vignette("stoichiometry")`
 #' @references
-#'   Telmosse, E. (2022). *Contribution des glucides exogènes à la fourniture
-#'   d’énergie lors d’un effort prolongé : analyse par régression multiple*.
-#'   Mémoire de maîtrise, Université de Montréal.
+#'   Elia, M., & Livesey, G. (1992). Energy expenditure and fuel selection in
+#'   biological systems. *World Review of Nutrition and Dietetics*, *70*,
+#'   68-131.
+#'
+#'   Kleiber, M. (1961). *The Fire of Life: An Introduction to Animal
+#'   Energetics*. Wiley.
 #'
 #'   Livesey, G., & Elia, M. (1988). *The American Journal of Clinical
 #'   Nutrition*, *47*(4), 608-628.

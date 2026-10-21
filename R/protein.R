@@ -218,7 +218,7 @@ calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
 #' @param urea_loss A data frame from calc_urea_loss (or with urea_mass_loss column)
 #' @param exercise_duration Exercise duration in minutes (default: 120)
 #' @param conversion_factor Grams of protein oxidized per gram of urea excreted
-#'   (default: `stoich_coefficients$protein_urea`, 2.9154)
+#'   (default: `stoich_coefficients$protein_urea`, 2.8660)
 #' @param id_col Name of the ID column
 #' @param protocol_col Name of the protocol column to keep in the output
 #'   (optional). Keep it when protein oxidation differs between protocols.
@@ -229,12 +229,11 @@ calc_urea_loss <- function(urea, sweat_loss, subjects = NULL) {
 #' @details
 #' protein_ox = urea_mass * conversion_factor / exercise_duration
 #'
-#' The default factor assumes that protein contains 16% N, that is 6.25 g
-#' protein per g N (Livesey & Elia, 1988, p. 620), and that all of this N
-#' leaves as urea, which is 46.646% N: 6.25 x 0.46646 = 2.9154 g protein per g
-#' urea. Telmosse (2022, p. 22) obtains 2.915 from the protein-type
-#' C89H148.5O32N23.5: the oxidation of 2057.5 g of protein gives 705 g of urea,
-#' that is 0.343 g of urea per g of protein (1 / 0.343 = 2.915).
+#' The default factor comes from Kleiber's standard protein without sulfur,
+#' C100H159N26O32 (16.3% N), whose N leaves as urea: 1 mol of protein
+#' (2237.5 g) gives 13 mol of urea (780.7 g), so 2.8660 g protein per g urea.
+#' With the conventional 16% N (6.25 g protein per g N; Livesey & Elia, 1988,
+#' p. 620), the factor is 2.9154; see [oxidation_constants()].
 calc_protein_oxidation <- function(urea_loss,
                                    exercise_duration = 120,
                                    conversion_factor = stoich_coefficients$protein_urea,
@@ -264,10 +263,10 @@ calc_protein_oxidation <- function(urea_loss,
 #'
 #' @param protein_ox Protein oxidation rate (g/min) - vector or data frame
 #' @param vo2_factor L O2 used per g protein (default:
-#'   `stoich_coefficients$protein_vo2`, 1.0103 L/g: 19.68 kJ/g divided by
-#'   19.48 kJ/L O2, Livesey & Elia, 1988, Table 6)
+#'   `stoich_coefficients$protein_vo2`, 1.0443 L/g for Kleiber's standard
+#'   protein without sulfur oxidized to urea)
 #' @param vco2_factor L CO2 produced per g protein (default:
-#'   `stoich_coefficients$protein_vco2`, 0.8436 L/g: vo2_factor times RQ 0.835)
+#'   `stoich_coefficients$protein_vco2`, 0.8715 L/g, RQ 0.835)
 #'
 #' @return A tibble with VO2p and VCO2p values
 #' @export

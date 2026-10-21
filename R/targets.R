@@ -357,8 +357,7 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120,
     dplyr::left_join(Rref_clean, by = "time") |>
     dplyr::left_join(Rexo_clean |> dplyr::select(protocol, rexo), by = "protocol") |>
     dplyr::mutate(
-      cho_exo = vco2 * ((rexp - rref) / (rexo - rref)) / stoich_coefficients$co2_cho_ratio,
-      cho_exo = pmax(cho_exo, 0, na.rm = TRUE)
+      cho_exo = vco2 * ((rexp - rref) / (rexo - rref)) / stoich_coefficients$co2_cho_ratio
     ) |>
     dplyr::select(id, time, protocol, cho_exo, rexp, rexo, rref)
 
@@ -373,7 +372,6 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120,
     dplyr::left_join(Rexo_clean |> dplyr::select(protocol, rexo), by = "protocol") |>
     dplyr::mutate(
       cho_pla = vco2 * ((rexp - rref) / (rpla - rref)) / stoich_coefficients$co2_cho_ratio,
-      cho_pla = pmax(cho_pla, 0, na.rm = TRUE),
       fexo = ((rpla - rref) / (rexo - rref)) * 100
     ) |>
     dplyr::select(id, time, protocol, cho_pla, rpla, fexo)
@@ -387,10 +385,7 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120,
     dplyr::mutate(
       cho_endo = cho_total - cho_exo,
       cho_mus = cho_total - cho_pla,
-      cho_liv = cho_pla - cho_exo,
-      cho_endo = pmax(cho_endo, 0, na.rm = TRUE),
-      cho_mus = pmax(cho_mus, 0, na.rm = TRUE),
-      cho_liv = pmax(cho_liv, 0, na.rm = TRUE)
+      cho_liv = cho_pla - cho_exo
     )
 
   # Calculate energy contributions

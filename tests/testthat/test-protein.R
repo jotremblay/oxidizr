@@ -36,7 +36,7 @@ test_that("calc_protein_oxidation calculates correctly with default conversion f
 
   result <- calc_protein_oxidation(urea_loss, exercise_duration = 120)
 
-  # Default factor: 6.25 g protein per g N x N fraction of urea = 2.9154
+  # Default factor: Kleiber's standard protein without S, 2.8660 g per g urea
   expected_total <- 1.0 * stoich_coefficients$protein_urea
   expected_rate <- expected_total / 120
 
@@ -123,9 +123,11 @@ test_that("calc_protein_gas_exchange calculates with default factors", {
 
   result <- calc_protein_gas_exchange(protein_ox)
 
-  # Default factors (Livesey & Elia, 1988, Table 6): 1.0103 and 0.8436 L/g
-  expect_equal(result$vo2_protein, 0.1 * 19.68 / 19.48)
-  expect_equal(result$vco2_protein, 0.1 * 0.835 * 19.68 / 19.48)
+  # Default factors: Kleiber's standard protein without S oxidized to urea
+  expect_equal(result$vo2_protein, 0.1 * stoich_coefficients$protein_vo2)
+  expect_equal(result$vco2_protein, 0.1 * stoich_coefficients$protein_vco2)
+  expect_equal(round(stoich_coefficients$protein_vo2, 4), 1.0443)
+  expect_equal(round(stoich_coefficients$protein_vco2, 4), 0.8715)
 })
 
 test_that("calc_protein_gas_exchange accepts custom factors", {

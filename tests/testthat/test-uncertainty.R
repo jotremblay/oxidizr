@@ -54,8 +54,8 @@ test_that("protein options give their sources' values", {
 })
 
 test_that("constant sets and uncertainty specifications print their choices", {
-  expect_output(print(oxidation_constants()), "TAG-type C53.4H99.2O6")
-  expect_output(print(oxidation_constants()), "CHO \\(g/min\\) = 4.6211 VCO2 - 3.2815 VO2")
+  expect_output(print(oxidation_constants()), "dioleoyl-palmitoyl-glycerol C55H102O6")
+  expect_output(print(oxidation_constants()), "CHO \\(g/min\\) = 4.6143 VCO2 - 3.2746 VO2")
   expect_output(print(oxidation_uncertainty(rexp = 0.1)), "rexp +0.1 absolute +random")
 })
 
@@ -70,7 +70,7 @@ test_that("analyze_oxidation uses the constant set it gets", {
   k <- oxidation_constants(lipid = "fatty_acid", molar_volume = "real_gas")
   res <- analyze_quiet(study, constants = k, uncertainty = NULL)
   r <- res@oxidation_rates
-  expect_equal(r$cho_total, pmax(k$cho_vco2 * r$vco2_lmin + k$cho_vo2 * r$vo2_lmin, 0))
+  expect_equal(r$cho_total, k$cho_vco2 * r$vco2_lmin + k$cho_vo2 * r$vo2_lmin)
   expect_equal(res@constants$choices$lipid, "fatty_acid")
 })
 
@@ -90,8 +90,6 @@ test_that("linear propagation matches the analytic error of the CHO and fat equa
   study <- create_crossover_study(isotopes = FALSE)
   res <- analyze_quiet(study, uncertainty = oxidation_uncertainty(vo2 = 0.01, vco2 = 0.01, rref = 0))
   r <- res@oxidation_rates
-  # Away from 0, where pmax() clamps the rates and cuts the change
-  r <- r[r$fat_total > 0.2 & r$cho_total > 0.5, ]
   k <- stoich_coefficients
   expect_equal(r$cho_total_u, sqrt((k$cho_vco2 * r$vco2_lmin * 0.01)^2 + (k$cho_vo2 * r$vo2_lmin * 0.01)^2))
   expect_equal(r$fat_total_u, sqrt((k$fat_vco2 * r$vco2_lmin * 0.01)^2 + (k$fat_vo2 * r$vo2_lmin * 0.01)^2))
@@ -292,7 +290,8 @@ test_that("compare_constants gives one row per constant set", {
   expect_gt(cmp$cho_total_mean[2], cmp$cho_total_mean[1])
   expect_lt(cmp$fat_total_mean[2], cmp$fat_total_mean[1])
   variants <- constant_variants()
-  expect_equal(length(variants), 1 + 3 + 2 + 2 + 1)
+  # default + other lipids (4) + other molar volumes (2) + other proteins (3) + energy pairing
+  expect_equal(length(variants), 1 + 4 + 2 + 3 + 1)
   expect_equal(variants[["energy = peronnet_massicotte, lipid = fatty_acid"]]$choices$lipid, "fatty_acid")
 })
 

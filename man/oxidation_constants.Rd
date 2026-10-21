@@ -5,19 +5,23 @@
 \title{Choose the Constants of the Calculations}
 \usage{
 oxidation_constants(
-  lipid = "tag_type",
+  lipid = "diop",
   molar_volume = "livesey_elia",
-  protein = "livesey_elia",
+  protein = "kleiber",
   energy = "iom"
 )
 }
 \arguments{
 \item{lipid}{The lipid whose oxidation reaction sets the fat equation:
 \describe{
-\item{\code{"tag_type"}}{(default) TAG-type C53.4H99.2O6 of Telmosse (2022,
-p. 20), chosen to match IOM (2005, Table 5-1): RQ 0.710.}
-\item{\code{"diop"}}{dioleoyl-palmitoyl-glycerol C55H102O6, the reference fat
-of Livesey & Elia (1988, Table 4): RQ 0.7097.}
+\item{\code{"diop"}}{(default) dioleoyl-palmitoyl-glycerol C55H102O6, the
+reference fat of Livesey & Elia (1988, Table 4) and Elia & Livesey
+(1992, Table 1), close to the average triacylglycerol of human adipose
+tissue (Péronnet & Massicotte, 1991): RQ 0.7097.}
+\item{\code{"tag_type"}}{TAG-type C53.4H99.2O6 of Telmosse (2022, p. 20),
+chosen to match IOM (2005, Table 5-1): RQ 0.710.}
+\item{\code{"tripalmitin"}}{tripalmitin C51H98O6, the fat of Kleiber (1961,
+Table 5.6): RQ 0.703.}
 \item{\code{"pos"}}{palmitoyl-stearoyl-oleoyl-glycerol C55H104O6, used by
 Frayn (1983) and Ferrannini (1988).}
 \item{\code{"fatty_acid"}}{the mean fatty acid of human adipose tissue,
@@ -38,7 +42,12 @@ by about 5 percent at RER 0.92.}
 
 \item{protein}{The protein gas exchange and urea factor:
 \describe{
-\item{\code{"livesey_elia"}}{(default) the general values of Livesey & Elia
+\item{\code{"kleiber"}}{(default) Kleiber's standard protein (1961, Table
+4.2: 53\% C, 7\% H, 16\% N, 23\% O, 1\% S) without its sulfur, which Kleiber
+(p. 85) judged small enough to neglect: C100H159N26O32, oxidized to
+urea at the chosen molar volume. RQ 0.835; 16.3\% N, so 6.14 g protein
+per g N.}
+\item{\code{"livesey_elia"}}{the general values of Livesey & Elia
 (1988, Table 6): 19.68 kJ/g / 19.48 kJ/L O2 = 1.0103 L O2/g, RQ 0.835;
 6.25 g protein per g N (p. 620), so 2.9154 g protein per g urea.}
 \item{\code{"protein_type"}}{the protein-type C89H148.5O32N23.5 of Telmosse
@@ -78,6 +87,10 @@ oxidation_constants()
 oxidation_constants(lipid = "fatty_acid", molar_volume = "real_gas")
 }
 \references{
+Elia, M., & Livesey, G. (1992). Energy expenditure and fuel selection in
+biological systems. \emph{World Review of Nutrition and Dietetics}, \emph{70},
+68-131.
+
 Ferrannini, E. (1988). The theoretical bases of indirect calorimetry: a
 review. \emph{Metabolism}, \emph{37}(3), 287-301.
 
@@ -91,6 +104,9 @@ Acids}. National Academies Press. \doi{10.17226/10490}
 Jeukendrup, A. E., & Wallis, G. A. (2005). Measurement of substrate
 oxidation during exercise by means of gas exchange measurements.
 \emph{International Journal of Sports Medicine}, \emph{26}(Suppl 1), S28-S37.
+
+Kleiber, M. (1961). \emph{The Fire of Life: An Introduction to Animal
+Energetics}. Wiley.
 
 Livesey, G., & Elia, M. (1988). \emph{The American Journal of Clinical
 Nutrition}, \emph{47}(4), 608-628.

@@ -1,5 +1,33 @@
 # oxidizr (development version)
 
+## Default constants and net rates
+
+* **Results change.** The default constants now follow the review of indirect
+  calorimetry and 13C tracing that oxidizr accompanies:
+  - fat: dioleoyl-palmitoyl-glycerol C55H102O6 (Livesey & Elia, 1988,
+    Table 4; Elia & Livesey, 1992, Table 1), RQ 0.7097. CHO = 4.6143 VCO2 -
+    3.2746 VO2 and fat = 1.7041 (VO2 - VCO2), against 4.6211, 3.2815 and
+    1.7137 with the TAG-type, which remains available (`lipid = "tag_type"`).
+  - protein: Kleiber's (1961) standard protein without sulfur,
+    C100H159N26O32, oxidized to urea: 1.0443 L O2/g, 0.8715 L CO2/g (RQ
+    0.835) and 2.8660 g protein per g urea, against 1.0103, 0.8436 and 2.9154
+    with the general values of Livesey & Elia (1988), which remain available
+    (`protein = "livesey_elia"`).
+  - The molar volume (22.414 L/mol) and energy values (IOM, 2005) are
+    unchanged.
+* New options `oxidation_constants(lipid = "tripalmitin")` (Kleiber, 1961,
+  Table 5.6) and `protein = "kleiber"`.
+* **Results change.** Oxidation rates are no longer set to 0 when negative.
+  `calc_substrate_oxidation()`, `calc_cho_partition()`, `calc_exogenous_cho()`
+  and the targets helpers return net rates: a negative fat oxidation above a
+  nonprotein RER of 1 estimates net lipogenesis, and truncation at 0 biased
+  group means upward.
+
+## Bug fixes
+
+* `calc_exogenous_cho()` and the targets helpers turned missing enrichment
+  values into 0 (`pmax(x, 0, na.rm = TRUE)`); they now stay `NA`.
+
 ## Constants, uncertainty and summaries
 
 * `oxidation_constants()` builds the constant set from documented options for

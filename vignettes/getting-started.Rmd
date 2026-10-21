@@ -171,13 +171,13 @@ plot_cho_partition(results, by = "protocol")
 
 ### Stoichiometric Equations
 
-The coefficients come from the balanced oxidation reactions of glucose and of a representative triacylglycerol (TAG-type C53.4H99.2O6), following Telmosse (2022), with a molar volume of 22.414 L/mol (Livesey & Elia, 1988). See `vignette("stoichiometry")` for the derivation and the reasons for each choice.
+The coefficients come from the balanced oxidation reactions of glucose and of dioleoyl-palmitoyl-glycerol (C55H102O6), the reference fat of Livesey & Elia (1988), with a molar volume of 22.414 L/mol. Protein is Kleiber's standard protein without sulfur, oxidized to urea (1.0443 L O2 and 0.8715 L CO2 per g). The rates are net rates and are not truncated at zero. See `vignette("stoichiometry")` for the derivation and the reasons for each choice.
 
 **Carbohydrate oxidation:**
-$$CHO\ (g/min) = 4.6211 \times VCO_2 - 3.2815 \times VO_2$$
+$$CHO\ (g/min) = 4.6143 \times VCO_2 - 3.2746 \times VO_2$$
 
 **Fat oxidation:**
-$$Fat\ (g/min) = 1.7137 \times VO_2 - 1.7137 \times VCO_2$$
+$$Fat\ (g/min) = 1.7041 \times VO_2 - 1.7041 \times VCO_2$$
 
 ### Exogenous CHO from Isotopes
 

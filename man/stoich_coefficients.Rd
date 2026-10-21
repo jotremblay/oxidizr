@@ -20,34 +20,36 @@ stoich_coefficients
 \description{
 Coefficients that convert gas exchange (L/min) into substrate oxidation
 (g/min), from the default \code{\link[=oxidation_constants]{oxidation_constants()}}. The package computes them
-when it is built, from balanced reactions, as Telmosse (2022, pp. 17-26)
-shows step by step. Use \code{\link[=oxidation_constants]{oxidation_constants()}} to choose other options.
+when it is built, from balanced reactions. Use \code{\link[=oxidation_constants]{oxidation_constants()}} to
+choose other options.
 }
 \details{
 The gas volumes per gram come from \code{\link[=gas_yield]{gas_yield()}} at 22.414 L/mol
 (Livesey & Elia, 1988) for:
 \itemize{
 \item glucose, C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O (0.7465 L O2 and CO2 per g);
-\item the TAG-type of Telmosse (2022), C53.4H99.2O6 + 75.2 O2 ->
-53.4 CO2 + 49.6 H2O (2.0129 L O2/g, 1.4294 L CO2/g, RQ 0.710).
+\item dioleoyl-palmitoyl-glycerol, the reference fat of Livesey & Elia
+(1988, Table 4) and Elia & Livesey (1992, Table 1), C55H102O6 + 77.5 O2
+-> 55 CO2 + 51 H2O (2.0212 L O2/g, 1.4344 L CO2/g, RQ 0.7097).
 }
-Solving VO2 = 0.7465 CHO + 2.0129 FAT and VCO2 = 0.7465 CHO + 1.4294 FAT
-gives CHO = 4.6211 VCO2 - 3.2815 VO2 and FAT = 1.7137 (VO2 - VCO2).
-Telmosse (2022) obtained 4.618, 3.279 and 1.712 with 22.4 L/mol, whole-number
-atomic weights and rounded volumes.
+Solving VO2 = 0.7465 CHO + 2.0212 FAT and VCO2 = 0.7465 CHO + 1.4344 FAT
+gives CHO = 4.6143 VCO2 - 3.2746 VO2 and FAT = 1.7041 (VO2 - VCO2).
 
-Protein values are computed from the general values of Livesey & Elia
-(1988, Table 6): 19.68 kJ/g / 19.48 kJ/L O2 = 1.0103 L O2/g, times RQ 0.835
-= 0.8436 L CO2/g. The urea factor is 6.25 g protein per g N (Livesey & Elia,
-1988, p. 620) times the N fraction of urea (0.46646), that is 2.9154 g
-protein per g urea.
+Protein is Kleiber's standard protein (1961, Table 4.2) without its sulfur,
+C100H159N26O32, oxidized to urea:
+C100H159N26O32 + 104.25 O2 -> 87 CO2 + 13 CO(NH2)2 + 53.5 H2O,
+that is 1.0443 L O2/g and 0.8715 L CO2/g (RQ 0.835). The protein is 16.3\% N,
+so 1 g of urea comes from 2.8660 g of protein.
 
 See \code{vignette("stoichiometry")} for the reasons behind each choice.
 }
 \references{
-Telmosse, E. (2022). \emph{Contribution des glucides exogènes à la fourniture
-d’énergie lors d’un effort prolongé : analyse par régression multiple}.
-Mémoire de maîtrise, Université de Montréal.
+Elia, M., & Livesey, G. (1992). Energy expenditure and fuel selection in
+biological systems. \emph{World Review of Nutrition and Dietetics}, \emph{70},
+68-131.
+
+Kleiber, M. (1961). \emph{The Fire of Life: An Introduction to Animal
+Energetics}. Wiley.
 
 Livesey, G., & Elia, M. (1988). \emph{The American Journal of Clinical
 Nutrition}, \emph{47}(4), 608-628.

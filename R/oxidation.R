@@ -23,16 +23,21 @@ NULL
 #'
 #' @details
 #' The coefficients come from [stoich_coefficients], which solves the
-#' balanced oxidation reactions of glucose and a triacylglycerol (Telmosse,
-#' 2022; see `vignette("stoichiometry")`). With the default coefficients:
+#' balanced oxidation reactions of glucose and dioleoyl-palmitoyl-glycerol
+#' (see `vignette("stoichiometry")`). With the default coefficients:
 #'
 #' Non-protein gas exchange:
-#' - VO2np = VO2 - protein_ox * 1.0103
-#' - VCO2np = VCO2 - protein_ox * 0.8436
+#' - VO2np = VO2 - protein_ox * 1.0443
+#' - VCO2np = VCO2 - protein_ox * 0.8715
 #'
 #' Substrate oxidation:
-#' - CHO (g/min) = 4.6211 * VCO2np - 3.2815 * VO2np
-#' - Fat (g/min) = 1.7137 * VO2np - 1.7137 * VCO2np
+#' - CHO (g/min) = 4.6143 * VCO2np - 3.2746 * VO2np
+#' - Fat (g/min) = 1.7041 * VO2np - 1.7041 * VCO2np
+#'
+#' The rates are net rates and are not truncated at zero. A negative fat
+#' oxidation (nonprotein RER above 1) estimates net lipogenesis, and a negative
+#' CHO oxidation (nonprotein RER below the RQ of fat) estimates net
+#' gluconeogenesis or a measurement problem (Frayn, 1983).
 #'
 #' If `protein_ox` is a data frame, it is joined by the ID column, and also by
 #' the protocol column when both tables have it. Each calorimetry row must
@@ -180,11 +185,7 @@ calc_substrate_oxidation <- function(calo,
                 "vo2_lmin", "vco2_lmin")
 
   result <- result |>
-    dplyr::select(dplyr::all_of(out_cols)) |>
-    dplyr::mutate(
-      cho_total = pmax(.data$cho_total, 0),
-      fat_total = pmax(.data$fat_total, 0)
-    )
+    dplyr::select(dplyr::all_of(out_cols))
 
   tibble::as_tibble(result)
 }
@@ -274,8 +275,7 @@ calc_cho_partition <- function(substrate_ox,
   # Calculate endogenous CHO
   result <- result |>
     dplyr::mutate(
-      cho_endo = .data$cho_total - .data$cho_exo,
-      cho_endo = pmax(.data$cho_endo, 0)  # Ensure non-negative
+      cho_endo = .data$cho_total - .data$cho_exo
     )
 
   # If plasma CHO available, calculate muscle and liver
@@ -288,9 +288,7 @@ calc_cho_partition <- function(substrate_ox,
       ) |>
       dplyr::mutate(
         cho_mus = .data$cho_total - .data$cho_pla,
-        cho_liv = .data$cho_pla - .data$cho_exo,
-        cho_mus = pmax(.data$cho_mus, 0),
-        cho_liv = pmax(.data$cho_liv, 0)
+        cho_liv = .data$cho_pla - .data$cho_exo
       )
   }
 

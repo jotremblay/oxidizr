@@ -155,10 +155,6 @@ calc_exogenous_cho <- function(calo,
     dplyr::select(dplyr::all_of(c(id_col, time_col, protocol_col)),
                   cho_exo, rexp = dplyr::all_of(rexp_col), rexo = dplyr::all_of(rexo_col), rref)
 
-  # Set negative values to 0 (can happen at early time points)
-  result <- result |>
-    dplyr::mutate(cho_exo = pmax(.data$cho_exo, 0, na.rm = TRUE))
-
   tibble::as_tibble(result)
 }
 

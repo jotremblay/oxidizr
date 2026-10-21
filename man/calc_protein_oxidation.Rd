@@ -18,7 +18,7 @@ calc_protein_oxidation(
 \item{exercise_duration}{Exercise duration in minutes (default: 120)}
 
 \item{conversion_factor}{Grams of protein oxidized per gram of urea excreted
-(default: \code{stoich_coefficients$protein_urea}, 2.9154)}
+(default: \code{stoich_coefficients$protein_urea}, 2.8660)}
 
 \item{id_col}{Name of the ID column}
 
@@ -34,10 +34,9 @@ Estimate protein oxidation rate from total urea loss.
 \details{
 protein_ox = urea_mass * conversion_factor / exercise_duration
 
-The default factor assumes that protein contains 16\% N, that is 6.25 g
-protein per g N (Livesey & Elia, 1988, p. 620), and that all of this N
-leaves as urea, which is 46.646\% N: 6.25 x 0.46646 = 2.9154 g protein per g
-urea. Telmosse (2022, p. 22) obtains 2.915 from the protein-type
-C89H148.5O32N23.5: the oxidation of 2057.5 g of protein gives 705 g of urea,
-that is 0.343 g of urea per g of protein (1 / 0.343 = 2.915).
+The default factor comes from Kleiber's standard protein without sulfur,
+C100H159N26O32 (16.3\% N), whose N leaves as urea: 1 mol of protein
+(2237.5 g) gives 13 mol of urea (780.7 g), so 2.8660 g protein per g urea.
+With the conventional 16\% N (6.25 g protein per g N; Livesey & Elia, 1988,
+p. 620), the factor is 2.9154; see \code{\link[=oxidation_constants]{oxidation_constants()}}.
 }

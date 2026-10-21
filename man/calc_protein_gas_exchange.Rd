@@ -14,11 +14,11 @@ calc_protein_gas_exchange(
 \item{protein_ox}{Protein oxidation rate (g/min) - vector or data frame}
 
 \item{vo2_factor}{L O2 used per g protein (default:
-\code{stoich_coefficients$protein_vo2}, 1.0103 L/g: 19.68 kJ/g divided by
-19.48 kJ/L O2, Livesey & Elia, 1988, Table 6)}
+\code{stoich_coefficients$protein_vo2}, 1.0443 L/g for Kleiber's standard
+protein without sulfur oxidized to urea)}
 
 \item{vco2_factor}{L CO2 produced per g protein (default:
-\code{stoich_coefficients$protein_vco2}, 0.8436 L/g: vo2_factor times RQ 0.835)}
+\code{stoich_coefficients$protein_vco2}, 0.8715 L/g, RQ 0.835)}
 }
 \value{
 A tibble with VO2p and VCO2p values

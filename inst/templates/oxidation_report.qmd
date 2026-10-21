@@ -72,7 +72,7 @@ cat("
 
 ### Indirect Calorimetry
 
-Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~). The coefficients solve the balanced oxidation reactions of glucose and of the lipid ", chosen[["lipid"]], ", with a molar volume of ", chosen[["molar_volume"]], ", following the method of Telmosse (2022):
+Substrate oxidation rates were calculated from oxygen consumption (VO~2~) and carbon dioxide production (VCO~2~). The coefficients solve the balanced oxidation reactions of glucose and of the lipid ", chosen[["lipid"]], ", with a molar volume of ", chosen[["molar_volume"]], ":
 
 - **CHO oxidation** (g/min) = ", f4(k$cho_vco2), " × VCO~2~ - ", f4(-k$cho_vo2), " × VO~2~
 - **Fat oxidation** (g/min) = ", f4(k$fat_vo2), " × VO~2~ - ", f4(-k$fat_vco2), " × VCO~2~
@@ -90,7 +90,7 @@ if (has_isotopes) {
   cat("
 ### Isotope Tracer Analysis
 
-Exogenous carbohydrate oxidation was determined using ^13^C isotope enrichment and the Mosora equation (Telmosse, 2022), with k = ", f4(k$co2_cho_ratio), " L CO~2~ produced per g of glucose oxidized:
+Exogenous carbohydrate oxidation was determined using ^13^C isotope enrichment and the equation of Mosora et al. (1976) and Péronnet et al. (1990), with k = ", f4(k$co2_cho_ratio), " L CO~2~ produced per g of glucose oxidized:
 
 CHO~exo~ = VCO~2~ × ((R~exp~ - R~ref~) / (R~exo~ - R~ref~)) / ", f4(k$co2_cho_ratio), "
 
