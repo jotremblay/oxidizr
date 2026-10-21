@@ -26,6 +26,8 @@ navbar:
           href: articles/stoichiometry.html
         - text: Uncertainty in Substrate Oxidation
           href: articles/uncertainty.html
+        - text: Worked Example with 13C-Glucose
+          href: articles/review-example.html
 
 reference:
   - title: "Data Classes"
