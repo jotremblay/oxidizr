@@ -240,14 +240,24 @@ create_sweat_inputs <- function(urine = c(200, 300)) {
   )
 }
 
-# The mass balance as written before sweat_balance(), without urine
-old_sweat_balance <- function(vo2, vco2, ve, temp, hum, p, init, fin, water, saline, t, base) {
-  gas <- vco2 * t / 22.4 * 44 - vo2 * t / 22.4 * 32
+# Independent copy of the mass balance, including urine (mL)
+reference_sweat_loss <- function(vo2, vco2, ve, temp, hum, p, init, fin, water, saline, t,
+                                 base = 0, urine_ml = 0, constants = oxidation_constants()) {
+  mv <- constants$molar_volume
+  mm <- constants$molar_mass
+  gas <- (vco2 * mm[["CO2"]] / mv[["CO2"]] - vo2 * mm[["O2"]] / mv[["O2"]]) * t
   p_amb <- 5.53275 * 10^(0.02585 * temp) * hum / 100
   vin <- ve * t / p * p_amb
   vout <- ve * t / p * 47
-  h2o <- (((273 * (((vout - vin) * p) / 760)) / (273 + 37)) / 22.4) * 18
-  init + (water + base + saline) / 1000 - (gas + h2o) / 1000 - fin
+  h2o <- (((273 * (((vout - vin) * p) / 760)) / (273 + 37)) / mv[["H2O"]]) * mm[["H2O"]]
+  init + (water + base + saline) / 1000 - (gas + h2o + urine_ml) / 1000 - fin
+}
+
+# 22.4 L/mol and 44, 32, 18 g/mol: the values hard-coded before constants were used
+legacy_sweat_constants <- function() {
+  k <- oxidation_constants(molar_volume = "ideal_22.4")
+  k$molar_mass <- c(O2 = 32, CO2 = 44, H2O = 18)
+  k
 }
 
 test_that("calc_sweat_loss gives one row per subject and protocol", {
@@ -259,10 +269,59 @@ test_that("calc_sweat_loss gives one row per subject and protocol", {
 
   # Each protocol uses its own gas exchange and removes its own urine
   expected <- c(
-    old_sweat_balance(2, 1.8, 2 * 25, 20, 50, 760, 70, 69, 500, 0, 120, 0) - 0.2,
-    old_sweat_balance(3, 2.7, 3 * 25, 20, 50, 760, 70, 68.5, 1000, 0, 120, 0) - 0.3
+    reference_sweat_loss(2, 1.8, 2 * 25, 20, 50, 760, 70, 69, 500, 0, 120, urine_ml = 200),
+    reference_sweat_loss(3, 2.7, 3 * 25, 20, 50, 760, 70, 68.5, 1000, 0, 120, urine_ml = 300)
   )
   expect_equal(result$sweat_loss, expected)
+})
+
+test_that("sweat loss uses the default molar volume and molar masses", {
+  k <- oxidation_constants()
+  expect_equal(k$choices$molar_volume, "livesey_elia")
+  expect_equal(k$molar_volume, c(O2 = 22.414, CO2 = 22.414, H2O = 22.414))
+  expect_equal(k$molar_mass, c(O2 = 31.9988, CO2 = 44.0098, H2O = 18.01528))
+  expect_equal(oxidation_constants(molar_volume = "ideal_22.4")$molar_volume,
+               c(O2 = 22.4, CO2 = 22.4, H2O = 22.4))
+  expect_equal(oxidation_constants(molar_volume = "real_gas")$molar_volume,
+               c(O2 = 22.3858, CO2 = 22.2966, H2O = 22.414))
+
+  x <- create_sweat_inputs()
+  default <- calc_sweat_loss(x$subjects, x$calo, x$environment)
+  explicit <- calc_sweat_loss(x$subjects, x$calo, x$environment, constants = k)
+  expect_equal(default$sweat_loss, explicit$sweat_loss)
+})
+
+test_that("sweat loss changes with molar volume and molar mass", {
+  x <- create_sweat_inputs()
+  default <- calc_sweat_loss(x$subjects, x$calo, x$environment)
+
+  by_volume <- calc_sweat_loss(
+    x$subjects, x$calo, x$environment,
+    constants = oxidation_constants(molar_volume = "ideal_22.4")
+  )
+  by_real_gas <- calc_sweat_loss(
+    x$subjects, x$calo, x$environment,
+    constants = oxidation_constants(molar_volume = "real_gas")
+  )
+  rounded <- oxidation_constants()
+  rounded$molar_mass <- c(O2 = 32, CO2 = 44, H2O = 18)
+  by_mass <- calc_sweat_loss(x$subjects, x$calo, x$environment, constants = rounded)
+
+  expect_false(isTRUE(all.equal(default$sweat_loss, by_volume$sweat_loss)))
+  expect_false(isTRUE(all.equal(default$sweat_loss, by_real_gas$sweat_loss)))
+  expect_false(isTRUE(all.equal(default$sweat_loss, by_mass$sweat_loss)))
+
+  # The previous hard-coded balance is what ideal_22.4 plus rounded masses give
+  legacy <- calc_sweat_loss(x$subjects, x$calo, x$environment,
+                            constants = legacy_sweat_constants())
+  expected <- c(
+    reference_sweat_loss(2, 1.8, 2 * 25, 20, 50, 760, 70, 69, 500, 0, 120,
+                         urine_ml = 200, constants = legacy_sweat_constants()),
+    reference_sweat_loss(3, 2.7, 3 * 25, 20, 50, 760, 70, 68.5, 1000, 0, 120,
+                         urine_ml = 300, constants = legacy_sweat_constants())
+  )
+  expect_equal(legacy$sweat_loss, expected)
+  expect_false(isTRUE(all.equal(default$sweat_loss, legacy$sweat_loss)))
 })
 
 test_that("calc_sweat_loss adds no baseline water by default", {
@@ -352,4 +411,36 @@ test_that("analyze_oxidation removes urine held only in the urea data", {
   expected <- calc_protein_oxidation(calc_urea_loss(urea, sweat, with_urine))
   got <- unique(res@oxidation_rates[c("id", "protein_ox")])
   expect_equal(got$protein_ox, expected$protein_ox)
+})
+
+test_that("analyze_oxidation protein oxidation follows the sweat constants", {
+  base <- data.frame(id = c(1, 2), initial_body_mass = 70, final_body_mass = c(69, 68.5),
+                     water_ingested = 500, saline = 0, urine = c(100, 300))
+  env <- EnvironmentData(data = data.frame(id = c(1, 2), temperature = 20, humidity = 50, pressure = 760))
+  calo <- CalorimetryData(data = data.frame(id = c(1, 1, 2, 2), time = c(30, 60, 30, 60),
+                                            vo2 = 2.5, vco2 = 2.3))
+  urea <- UreaData(data = data.frame(id = c(1, 2), sweat_urea = 10, urine_urea = 300))
+  subjects <- SubjectData(data = base)
+  study <- OxidationStudy(calorimetry = calo, isotopes = NULL, urea = urea,
+                          environment = env, subjects = subjects)
+
+  res <- suppressMessages(analyze_oxidation(study, validate = FALSE, uncertainty = NULL))
+  vol <- oxidation_constants(molar_volume = "ideal_22.4")
+  res_vol <- suppressMessages(analyze_oxidation(study, validate = FALSE, uncertainty = NULL,
+                                                constants = vol))
+  mass <- oxidation_constants()
+  mass$molar_mass <- c(O2 = 32, CO2 = 44, H2O = 18)
+  res_mass <- suppressMessages(analyze_oxidation(study, validate = FALSE, uncertainty = NULL,
+                                                 constants = mass))
+
+  protein_of <- function(result) unique(result@oxidation_rates[c("id", "protein_ox")])$protein_ox
+  expect_false(isTRUE(all.equal(protein_of(res), protein_of(res_vol))))
+  expect_false(isTRUE(all.equal(protein_of(res), protein_of(res_mass))))
+
+  sweat <- calc_sweat_loss(subjects, calo, env, constants = mass)
+  expected <- calc_protein_oxidation(
+    calc_urea_loss(urea, sweat, subjects),
+    conversion_factor = mass$protein_urea
+  )
+  expect_equal(protein_of(res_mass), expected$protein_ox)
 })

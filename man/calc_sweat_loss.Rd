@@ -10,7 +10,8 @@ calc_sweat_loss(
   environment,
   exercise_duration = 120,
   baseline_water_ml = 0,
-  ve_vo2_ratio = 25
+  ve_vo2_ratio = 25,
+  constants = oxidation_constants()
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ of SubjectData, added to the fluid balance (default: 0).}
 \item{ve_vo2_ratio}{Ventilation to VO2 ratio used to estimate minute
 ventilation when VE data is not available (default: 25). Typical range
 during moderate exercise is 20-30.}
+
+\item{constants}{The constants of the calculations, from
+\code{\link[=oxidation_constants]{oxidation_constants()}} (default: the oxidizr defaults). The balance
+reads \code{molar_volume} (L/mol of O2, CO2 and water vapor) and \code{molar_mass}
+(g/mol of O2, CO2 and H2O).}
 }
 \value{
 A tibble with the ID column, the protocol column (if any) and
@@ -43,6 +49,11 @@ sweat (kg) = initial mass + (water + baseline water + saline) / 1000
 \item (expired CO2 mass - O2 mass taken up + respiratory water) / 1000
 \item urine / 1000 - final mass
 }
+
+Expired CO2, O2 taken up and respiratory water are converted from STPD
+litres to grams with the molar volume and the molar masses of \code{constants}.
+The defaults are 22.414 L/mol and the masses from the atomic weights of
+Péronnet & Massicotte (1991): O2 31.9988, CO2 44.0098 and H2O 18.01528 g/mol.
 
 Urine is the volume (mL) passed between the two weighings, read from the
 \code{urine} entry of \code{subjects@fluid_cols}. If that column is absent, urine is

@@ -69,8 +69,11 @@ kcal/g for the mean fatty acid at 37 degrees C (Péronnet & Massicotte,
 }
 \value{
 A list of class \code{oxidation_constants} with the elements of
-\link{stoich_coefficients}, \code{energy} (a list like \link{energy_factors}), and
-\code{choices} (the option of each part).
+\link{stoich_coefficients}, \code{energy} (a list like \link{energy_factors}),
+\code{molar_volume} (L/mol of O2, CO2 and water vapor), \code{molar_mass} (g/mol of
+O2, CO2 and H2O, from the atomic weights of Péronnet & Massicotte, 1991)
+and \code{choices} (the option of each part). Water vapor uses the same molar
+volume as O2 and CO2 when those are equal, and 22.414 L/mol when they differ.
 }
 \description{
 Build the set of constants that every calculation step uses: the CHO and fat

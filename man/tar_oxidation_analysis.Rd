@@ -7,7 +7,8 @@
 tar_oxidation_analysis(
   cleaned_data,
   exercise_duration = 120,
-  baseline_water_ml = 2000
+  baseline_water_ml = 2000,
+  constants = oxidation_constants()
 )
 }
 \arguments{
@@ -17,6 +18,10 @@ tar_oxidation_analysis(
 
 \item{baseline_water_ml}{Water intake (mL) not recorded in \code{water_ingested},
 added to the fluid balance (default: 2000, the study protocol)}
+
+\item{constants}{The constants of the calculations, from
+\code{\link[=oxidation_constants]{oxidation_constants()}} (default: the oxidizr defaults). The sweat
+balance reads \code{molar_volume} and \code{molar_mass} from this set.}
 }
 \value{
 A list containing:

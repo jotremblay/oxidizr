@@ -25,6 +25,12 @@
 
 ## Bug fixes
 
+* **Results change.** `calc_sweat_loss()` and the sweat balance used by
+  `tar_oxidation_analysis()` read molar volume and molar mass from
+  `oxidation_constants()` (default 22.414 L/mol; O2 31.9988, CO2 44.0098 and
+  H2O 18.01528 g/mol). They previously hard-coded 22.4 L/mol and 32, 44 and
+  18 g/mol, so a chosen molar volume never reached sweat loss or the protein
+  estimate that depends on it.
 * `calc_exogenous_cho()` and the targets helpers turned missing enrichment
   values into 0 (`pmax(x, 0, na.rm = TRUE)`); they now stay `NA`.
 
