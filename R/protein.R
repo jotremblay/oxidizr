@@ -18,11 +18,20 @@ NULL
 #' @param ve_vo2_ratio Ventilation to VO2 ratio used to estimate minute
 #'   ventilation when VE data is not available (default: 25). Typical range
 #'   during moderate exercise is 20-30.
+#' @param constants The constants of the calculations, from
+#'   [oxidation_constants()] (default: the oxidizr defaults). The balance
+#'   reads `molar_volume` (L/mol of O2, CO2 and water vapor) and `molar_mass`
+#'   (g/mol of O2, CO2 and H2O).
 #'
 #' @details
 #' sweat (kg) = initial mass + (water + baseline water + saline) / 1000
 #' - (expired CO2 mass - O2 mass taken up + respiratory water) / 1000
 #' - urine / 1000 - final mass
+#'
+#' Expired CO2, O2 taken up and respiratory water are converted from STPD
+#' litres to grams with the molar volume and the molar masses of `constants`.
+#' The defaults are 22.414 L/mol and the masses from the atomic weights of
+#' Péronnet & Massicotte (1991): O2 31.9988, CO2 44.0098 and H2O 18.01528 g/mol.
 #'
 #' Urine is the volume (mL) passed between the two weighings, read from the
 #' `urine` entry of `subjects@fluid_cols`. If that column is absent, urine is
@@ -37,7 +46,8 @@ calc_sweat_loss <- function(subjects,
                             environment,
                             exercise_duration = 120,
                             baseline_water_ml = 0,
-                            ve_vo2_ratio = 25) {
+                            ve_vo2_ratio = 25,
+                            constants = oxidation_constants()) {
 
   # Extract data from S7 objects or use directly
   if (S7_inherits(subjects, SubjectData)) {
@@ -116,7 +126,8 @@ calc_sweat_loss <- function(subjects,
         saline = .data[[saline_col]],
         urine = if (has_urine) .data[[urine_col]] else 0,
         exercise_duration = exercise_duration,
-        baseline_water_ml = baseline_water_ml
+        baseline_water_ml = baseline_water_ml,
+        constants = constants
       )
     ) |>
     dplyr::select(dplyr::all_of(c(id_col, proto)), "sweat_loss")
@@ -127,18 +138,49 @@ calc_sweat_loss <- function(subjects,
 # Sweat loss (kg) from a body-mass balance. Shared by calc_sweat_loss() and
 # tar_oxidation_analysis(). Gas exchange in L/min, fluids in mL, masses in kg,
 # temperature in degrees C, relative humidity in %, pressure in mmHg.
+# `constants` is an oxidation_constants() set. Molar volume and molar mass
+# come from that object; a coefficient list without them uses the defaults.
 sweat_balance <- function(vo2, vco2, ve, temperature, humidity, pressure,
                           initial_mass, final_mass, water, saline, urine,
-                          exercise_duration, baseline_water_ml = 0) {
-  # Expired CO2 mass minus O2 mass taken up (g), 22.4 L/mol
-  gas_lost <- (vco2 * 44 - vo2 * 32) * exercise_duration / 22.4
+                          exercise_duration, baseline_water_ml = 0,
+                          constants = oxidation_constants()) {
+  gas <- resolve_sweat_constants(constants)
+  mv <- gas$molar_volume
+  mm <- gas$molar_mass
+  # Expired CO2 mass minus O2 mass taken up (g)
+  gas_lost <- (vco2 * mm[["CO2"]] / mv[["CO2"]] -
+                 vo2 * mm[["O2"]] / mv[["O2"]]) * exercise_duration
   # Respiratory water (g): saturated vapor pressure of ambient air (Antoine
   # approximation) against expired air saturated at 37 degrees C (47 mmHg)
   ph2o_ambient <- 5.53275 * 10^(0.02585 * temperature) * humidity / 100
   vapor_l <- ve * exercise_duration / pressure * (47 - ph2o_ambient)
-  h2o_lost <- 273 * vapor_l * pressure / 760 / (273 + 37) / 22.4 * 18
+  h2o_lost <- 273 * vapor_l * pressure / 760 / (273 + 37) / mv[["H2O"]] * mm[["H2O"]]
   intake <- (water + baseline_water_ml + saline) / 1000
   initial_mass + intake - (gas_lost + h2o_lost + urine) / 1000 - final_mass
+}
+
+# Named O2, CO2 and H2O volumes (L/mol) and masses (g/mol) for sweat_balance().
+resolve_sweat_constants <- function(constants) {
+  if (!is.list(constants)) {
+    cli::cli_abort("{.arg constants} must come from {.fn oxidation_constants}.")
+  }
+  mv <- constants$molar_volume
+  mm <- constants$molar_mass
+  if (is.null(mv) || is.null(mm) || is.null(mv[["H2O"]]) || anyNA(mv[["H2O"]])) {
+    defaults <- oxidation_constants()
+    if (is.null(mv)) mv <- defaults$molar_volume
+    if (is.null(mm)) mm <- defaults$molar_mass
+    if (length(mv) == 1L && is.null(names(mv))) mv <- c(O2 = mv, CO2 = mv, H2O = mv)
+    if (is.null(mv[["H2O"]]) || anyNA(mv[["H2O"]])) {
+      same <- isTRUE(all.equal(unname(mv[["O2"]]), unname(mv[["CO2"]])))
+      mv[["H2O"]] <- if (same) unname(mv[["O2"]]) else defaults$molar_volume[["H2O"]]
+    }
+  }
+  gas <- c("O2", "CO2", "H2O")
+  if (any(!gas %in% names(mv)) || any(!gas %in% names(mm))) {
+    cli::cli_abort("{.arg constants} must include molar volumes and molar masses for O2, CO2 and H2O.")
+  }
+  list(molar_volume = mv[gas], molar_mass = mm[gas])
 }
 
 #' Calculate Urea Loss

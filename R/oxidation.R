@@ -565,7 +565,8 @@ run_pipeline <- function(study, constants, control_protocol, exercise_duration,
       subjects = subjects,
       calo = calo,
       environment = study@environment,
-      exercise_duration = exercise_duration
+      exercise_duration = exercise_duration,
+      constants = constants
     )
     urea_loss <- calc_urea_loss(urea = urea, sweat_loss = sweat_loss, subjects = subjects)
     protein_ox <- calc_protein_oxidation(

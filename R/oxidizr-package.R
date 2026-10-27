@@ -392,8 +392,11 @@ protein_yield <- function(formula, molar_volume) {
 #'   }
 #'
 #' @return A list of class `oxidation_constants` with the elements of
-#'   [stoich_coefficients], `energy` (a list like [energy_factors]), and
-#'   `choices` (the option of each part).
+#'   [stoich_coefficients], `energy` (a list like [energy_factors]),
+#'   `molar_volume` (L/mol of O2, CO2 and water vapor), `molar_mass` (g/mol of
+#'   O2, CO2 and H2O, from the atomic weights of Péronnet & Massicotte, 1991)
+#'   and `choices` (the option of each part). Water vapor uses the same molar
+#'   volume as O2 and CO2 when those are equal, and 22.414 L/mol when they differ.
 #' @export
 #'
 #' @seealso [stoich_coefficients], [compare_constants()], `vignette("stoichiometry")`
@@ -451,6 +454,13 @@ oxidation_constants <- function(lipid = "diop",
   }
 
   v <- constant_options$molar_volume[[molar_volume]]$value
+  # Water vapor has no separate option. It uses the common gas volume, and the
+  # ideal-gas 22.414 L/mol when O2 and CO2 differ: the STPD correction is ideal.
+  v_h2o <- if (isTRUE(all.equal(v[["O2"]], v[["CO2"]]))) {
+    v[["O2"]]
+  } else {
+    constant_options$molar_volume$livesey_elia$value[["O2"]]
+  }
   cho <- gas_yield(c(C = 6, H = 12, O = 6), v)
   fat <- gas_yield(constant_options$lipid[[lipid]]$formula, v)
   # [CHO, fat] (g/min) = k %*% [VO2, VCO2] (L/min)
@@ -477,6 +487,13 @@ oxidation_constants <- function(lipid = "diop",
       protein_urea = pro[["urea"]],   # g protein per g urea
       co2_cho_ratio = cho[["co2"]],   # L CO2 per g glucose (13C)
       energy = list(cho = e$cho, fat = e$fat, protein = e$protein),
+      molar_volume = c(O2 = unname(v[["O2"]]), CO2 = unname(v[["CO2"]]),
+                       H2O = unname(v_h2o)),
+      molar_mass = c(
+        O2 = 2 * atomic_weight[["O"]],
+        CO2 = atomic_weight[["C"]] + 2 * atomic_weight[["O"]],
+        H2O = 2 * atomic_weight[["H"]] + atomic_weight[["O"]]
+      ),
       choices = list(lipid = lipid, molar_volume = molar_volume,
                      protein = protein, energy = energy)
     ),

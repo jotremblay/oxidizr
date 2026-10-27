@@ -289,6 +289,9 @@ tar_import_data <- function(data_dir = "data",
 #' @param exercise_duration Duration of exercise in minutes (default: 120)
 #' @param baseline_water_ml Water intake (mL) not recorded in `water_ingested`,
 #'   added to the fluid balance (default: 2000, the study protocol)
+#' @param constants The constants of the calculations, from
+#'   [oxidation_constants()] (default: the oxidizr defaults). The sweat
+#'   balance reads `molar_volume` and `molar_mass` from this set.
 #'
 #' @return A list containing:
 #' \describe{
@@ -308,7 +311,8 @@ tar_import_data <- function(data_dir = "data",
 #'
 #' @export
 tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120,
-                                   baseline_water_ml = 2000) {
+                                   baseline_water_ml = 2000,
+                                   constants = oxidation_constants()) {
 
   # Extract data from cleaned_data list
   calo_s7 <- cleaned_data$calo_s7
@@ -328,7 +332,8 @@ tar_oxidation_analysis <- function(cleaned_data, exercise_duration = 120,
         initial_mass = initial_body_mass, final_mass = final_body_mass,
         water = water_ingested, saline = saline, urine = urine,
         exercise_duration = exercise_duration,
-        baseline_water_ml = baseline_water_ml
+        baseline_water_ml = baseline_water_ml,
+        constants = constants
       ),
       urine_urea_loss = urine * urine_urea / 1000,
       sweat_urea_loss = sweat_loss * sweat_urea,
